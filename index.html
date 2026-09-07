@@ -7570,6 +7570,20 @@ addUnknownToFormula(
 // ---------------------------------------------------------------------------
 function auditExtraSubstitution(f,u,v,n,sq){
   switch(f.id){
+    case 'inertial_force':
+      if(u==='Fs') return `F_s=${n(v.m)}\\cdot${n(v.as)}`;
+      if(u==='m') return `m=\\frac{${n(v.Fs)}}{${n(v.as)}}`;
+      return `a_s=\\frac{${n(v.Fs)}}{${n(v.m)}}`;
+    case 'center_of_mass_two':
+      if(u==='xT') return `x_T=\\frac{${n(v.m1c)}\\cdot${n(v.x1c)}+${n(v.m2c)}\\cdot${n(v.x2c)}}{${n(v.m1c)}+${n(v.m2c)}}`;
+      if(u==='m1c') return `m_1=${n(v.m2c)}\\frac{${n(v.x2c)}-${n(v.xT)}}{${n(v.xT)}-${n(v.x1c)}}`;
+      if(u==='x1c') return `x_1=\\frac{${n(v.xT)}(${n(v.m1c)}+${n(v.m2c)})-${n(v.m2c)}\\cdot${n(v.x2c)}}{${n(v.m1c)}}`;
+      if(u==='m2c') return `m_2=${n(v.m1c)}\\frac{${n(v.xT)}-${n(v.x1c)}}{${n(v.x2c)}-${n(v.xT)}}`;
+      return `x_2=\\frac{${n(v.xT)}(${n(v.m1c)}+${n(v.m2c)})-${n(v.m1c)}\\cdot${n(v.x1c)}}{${n(v.m2c)}}`;
+    case 'heat_capacity_ratio':
+      if(u==='kappaHeat') return `\\kappa=\\frac{${n(v.cp)}}{${n(v.cv)}}`;
+      if(u==='cp') return `c_p=${n(v.kappaHeat)}\\cdot${n(v.cv)}`;
+      return `c_V=\\frac{${n(v.cp)}}{${n(v.kappaHeat)}}`;
     case 'bernoulli_horizontal':
       if(u==='rho') return `\\rho=\\frac{2\\cdot(${n(v.p1)}-${n(v.p2)})}{${sq(v.v2)}-${sq(v.v1)}}`;
       break;
@@ -7854,13 +7868,211 @@ formulas.push({
   }
 });
 
+
+// ============================================================================
+// V56 – nové základní vztahy z prvních šesti schválených oblastí
+// ============================================================================
+
+formulas.push({
+  id:'inertial_force',
+  rawGenerator:true,
+  name:'Setrvačná síla',
+  topic:'Mechanika',
+  subtopic:'Neinerciální vztažné soustavy',
+  tex:'F_s=ma_s',
+  vars:[
+    {k:'Fs',s:'F_s',name:'setrvačná síla',unit:'N'},
+    {k:'m',s:'m',name:'hmotnost',unit:'kg'},
+    {k:'as',s:'a_s',name:'zrychlení soustavy',unit:'m/s²'}
+  ],
+  unknowns:['Fs','m','as'],
+  keywords:'setrvačná síla neinerciální vztažná soustava zrychlení',
+  generators:{
+    Fs(){
+      const m=pickAny([2,5,10,20,50]),as=pickAny([0.5,1,1.5,2,3]),Fs=m*as;
+      return makeProblem(
+        `Vozík o hmotnosti <b>${fmt(m)} kg</b> je v soustavě, která se pohybuje se zrychlením <b>${fmt(as)} m/s²</b>. Urči velikost setrvačné síly.`,
+        {Fs,m,as},
+        [conv('m',m,'kg',m,'kg'),conv('as',as,'m/s²',as,'m/s²')],
+        'Fs'
+      );
+    },
+    m(){
+      const m=pickAny([2,5,10,20]),as=pickAny([1,1.5,2,3]),Fs=m*as;
+      return makeProblem(
+        `V neinerciální soustavě působí setrvačná síla <b>${fmt(Fs)} N</b> při zrychlení soustavy <b>${fmt(as)} m/s²</b>. Urči hmotnost tělesa.`,
+        {Fs,m,as},
+        [conv('Fs',Fs,'N',Fs,'N'),conv('as',as,'m/s²',as,'m/s²')],
+        'm'
+      );
+    },
+    as(){
+      const m=pickAny([2,5,10,20]),as=pickAny([0.5,1,1.5,2,3]),Fs=m*as;
+      return makeProblem(
+        `Na těleso o hmotnosti <b>${fmt(m)} kg</b> připadá v neinerciální soustavě setrvačná síla <b>${fmt(Fs)} N</b>. Urči zrychlení soustavy.`,
+        {Fs,m,as},
+        [conv('Fs',Fs,'N',Fs,'N'),conv('m',m,'kg',m,'kg')],
+        'as'
+      );
+    }
+  },
+  rearrange:{
+    Fs:{expr:'m*as',steps:[['Vzorec je už pro setrvačnou sílu vyjádřen.','\\boxed{F_s=ma_s}']]},
+    m:{expr:'Fs/as',steps:[['Vydělíme obě strany zrychlením soustavy.','\\boxed{m=\\frac{F_s}{a_s}}']]},
+    as:{expr:'Fs/m',steps:[['Vydělíme obě strany hmotností.','\\boxed{a_s=\\frac{F_s}{m}}']]}
+  }
+});
+
+formulas.push({
+  id:'center_of_mass_two',
+  rawGenerator:true,
+  name:'Těžiště dvou hmotných bodů',
+  topic:'Mechanika',
+  subtopic:'Mechanika tuhého tělesa',
+  tex:'x_T=\\frac{m_1x_1+m_2x_2}{m_1+m_2}',
+  vars:[
+    {k:'xT',s:'x_T',name:'poloha těžiště',unit:'m'},
+    {k:'m1c',s:'m_1',name:'první hmotnost',unit:'kg'},
+    {k:'x1c',s:'x_1',name:'poloha první hmotnosti',unit:'m'},
+    {k:'m2c',s:'m_2',name:'druhá hmotnost',unit:'kg'},
+    {k:'x2c',s:'x_2',name:'poloha druhé hmotnosti',unit:'m'}
+  ],
+  unknowns:['xT','m1c','x1c','m2c','x2c'],
+  keywords:'těžiště poloha těžiště dva hmotné body statika',
+  generators:{
+    xT(){
+      const m1c=pickAny([1,2,3,4]),m2c=pickAny([2,3,4,5]),x1c=0,x2c=pickAny([2,3,4,5]);
+      const xT=(m1c*x1c+m2c*x2c)/(m1c+m2c);
+      return makeProblem(
+        `Na přímce je těleso o hmotnosti <b>${m1c} kg</b> v poloze <b>${x1c} m</b> a těleso o hmotnosti <b>${m2c} kg</b> v poloze <b>${x2c} m</b>. Urči polohu jejich společného těžiště.`,
+        {xT,m1c,x1c,m2c,x2c},
+        [conv('m1c',m1c,'kg',m1c,'kg'),conv('x1c',x1c,'m',x1c,'m'),conv('m2c',m2c,'kg',m2c,'kg'),conv('x2c',x2c,'m',x2c,'m')],
+        'xT'
+      );
+    },
+    m1c(){
+      const m1c=pickAny([1,2,3,4]),m2c=pickAny([2,3,4,5]),x1c=0,x2c=4;
+      const xT=(m1c*x1c+m2c*x2c)/(m1c+m2c);
+      return makeProblem(
+        `Dvě tělesa leží v polohách <b>${x1c} m</b> a <b>${x2c} m</b>. Druhé má hmotnost <b>${m2c} kg</b> a společné těžiště je v poloze <b>${fmt(xT)} m</b>. Urči hmotnost prvního tělesa.`,
+        {xT,m1c,x1c,m2c,x2c},
+        [conv('xT',xT,'m',xT,'m'),conv('x1c',x1c,'m',x1c,'m'),conv('m2c',m2c,'kg',m2c,'kg'),conv('x2c',x2c,'m',x2c,'m')],
+        'm1c'
+      );
+    },
+    x1c(){
+      const m1c=pickAny([1,2,3]),m2c=pickAny([2,3,4]),x1c=pickAny([0,0.5,1]),x2c=4;
+      const xT=(m1c*x1c+m2c*x2c)/(m1c+m2c);
+      return makeProblem(
+        `První těleso má hmotnost <b>${m1c} kg</b>, druhé <b>${m2c} kg</b> a druhé leží v poloze <b>${x2c} m</b>. Společné těžiště je v poloze <b>${fmt(xT)} m</b>. Urči polohu prvního tělesa.`,
+        {xT,m1c,x1c,m2c,x2c},
+        [conv('xT',xT,'m',xT,'m'),conv('m1c',m1c,'kg',m1c,'kg'),conv('m2c',m2c,'kg',m2c,'kg'),conv('x2c',x2c,'m',x2c,'m')],
+        'x1c'
+      );
+    },
+    m2c(){
+      const m1c=pickAny([1,2,3,4]),m2c=pickAny([2,3,4,5]),x1c=0,x2c=4;
+      const xT=(m1c*x1c+m2c*x2c)/(m1c+m2c);
+      return makeProblem(
+        `Dvě tělesa jsou v polohách <b>${x1c} m</b> a <b>${x2c} m</b>. První má hmotnost <b>${m1c} kg</b> a společné těžiště je v poloze <b>${fmt(xT)} m</b>. Urči hmotnost druhého tělesa.`,
+        {xT,m1c,x1c,m2c,x2c},
+        [conv('xT',xT,'m',xT,'m'),conv('m1c',m1c,'kg',m1c,'kg'),conv('x1c',x1c,'m',x1c,'m'),conv('x2c',x2c,'m',x2c,'m')],
+        'm2c'
+      );
+    },
+    x2c(){
+      const m1c=pickAny([1,2,3]),m2c=pickAny([2,3,4]),x1c=0,x2c=pickAny([3,4,5]);
+      const xT=(m1c*x1c+m2c*x2c)/(m1c+m2c);
+      return makeProblem(
+        `První těleso o hmotnosti <b>${m1c} kg</b> je v poloze <b>${x1c} m</b>, druhé má hmotnost <b>${m2c} kg</b>. Společné těžiště je v poloze <b>${fmt(xT)} m</b>. Urči polohu druhého tělesa.`,
+        {xT,m1c,x1c,m2c,x2c},
+        [conv('xT',xT,'m',xT,'m'),conv('m1c',m1c,'kg',m1c,'kg'),conv('x1c',x1c,'m',x1c,'m'),conv('m2c',m2c,'kg',m2c,'kg')],
+        'x2c'
+      );
+    }
+  },
+  rearrange:{
+    xT:{expr:'(m1c*x1c+m2c*x2c)/(m1c+m2c)',steps:[['Vzorec je už pro polohu těžiště vyjádřen.','\\boxed{x_T=\\frac{m_1x_1+m_2x_2}{m_1+m_2}}']]},
+    m1c:{expr:'m2c*(x2c-xT)/(xT-x1c)',steps:[
+      ['Vynásobíme rovnici součtem hmotností.','x_T(m_1+m_2)=m_1x_1+m_2x_2'],
+      ['Členy s \\(m_1\\) dáme na jednu stranu.','m_1(x_T-x_1)=m_2(x_2-x_T)'],
+      ['Vydělíme výrazem \\(x_T-x_1\\).','\\boxed{m_1=m_2\\frac{x_2-x_T}{x_T-x_1}}']
+    ]},
+    x1c:{expr:'(xT*(m1c+m2c)-m2c*x2c)/m1c',steps:[
+      ['Vynásobíme rovnici součtem hmotností.','x_T(m_1+m_2)=m_1x_1+m_2x_2'],
+      ['Odečteme člen \\(m_2x_2\\) a vydělíme \\(m_1\\).','\\boxed{x_1=\\frac{x_T(m_1+m_2)-m_2x_2}{m_1}}']
+    ]},
+    m2c:{expr:'m1c*(xT-x1c)/(x2c-xT)',steps:[
+      ['Vynásobíme rovnici součtem hmotností.','x_T(m_1+m_2)=m_1x_1+m_2x_2'],
+      ['Členy s \\(m_2\\) dáme na jednu stranu.','m_2(x_2-x_T)=m_1(x_T-x_1)'],
+      ['Vydělíme výrazem \\(x_2-x_T\\).','\\boxed{m_2=m_1\\frac{x_T-x_1}{x_2-x_T}}']
+    ]},
+    x2c:{expr:'(xT*(m1c+m2c)-m1c*x1c)/m2c',steps:[
+      ['Vynásobíme rovnici součtem hmotností.','x_T(m_1+m_2)=m_1x_1+m_2x_2'],
+      ['Odečteme člen \\(m_1x_1\\) a vydělíme \\(m_2\\).','\\boxed{x_2=\\frac{x_T(m_1+m_2)-m_1x_1}{m_2}}']
+    ]}
+  }
+});
+
+formulas.push({
+  id:'heat_capacity_ratio',
+  rawGenerator:true,
+  noUnitRandom:true,
+  name:'Poissonova konstanta z tepelných kapacit',
+  topic:'Molekulová fyzika a termika',
+  subtopic:'Plynné skupenství',
+  tex:'\\kappa=\\frac{c_p}{c_V}',
+  vars:[
+    {k:'kappaHeat',s:'\\kappa',name:'Poissonova konstanta',unit:''},
+    {k:'cp',s:'c_p',name:'měrná tepelná kapacita při stálém tlaku',unit:'J/(kg·K)'},
+    {k:'cv',s:'c_V',name:'měrná tepelná kapacita při stálém objemu',unit:'J/(kg·K)'}
+  ],
+  unknowns:['kappaHeat','cp','cv'],
+  keywords:'Poissonova konstanta kappa cp cv tepelná kapacita plyn',
+  generators:{
+    kappaHeat(){
+      const pair=pickAny([[1005,718],[844,655],[5193,3116]]);
+      const cp=pair[0],cv=pair[1],kappaHeat=cp/cv;
+      return makeProblem(
+        `Plyn má měrnou tepelnou kapacitu při stálém tlaku <b>${cp} J/(kg·K)</b> a při stálém objemu <b>${cv} J/(kg·K)</b>. Urči Poissonovu konstantu.`,
+        {kappaHeat,cp,cv},
+        [conv('cp',cp,'J/(kg·K)',cp,'J/(kg·K)'),conv('cv',cv,'J/(kg·K)',cv,'J/(kg·K)')],
+        'kappaHeat'
+      );
+    },
+    cp(){
+      const cv=pickAny([700,720,900,3000]),kappaHeat=pickAny([1.3,1.4,1.67]),cp=kappaHeat*cv;
+      return makeProblem(
+        `Poissonova konstanta plynu je <b>${fmt(kappaHeat)}</b> a \\(c_V=${fmt(cv)}\\,\\mathrm{J/(kg\\cdot K)}\\). Urči \\(c_p\\).`,
+        {kappaHeat,cp,cv},
+        [conv('kappaHeat',kappaHeat,'',kappaHeat,''),conv('cv',cv,'J/(kg·K)',cv,'J/(kg·K)')],
+        'cp'
+      );
+    },
+    cv(){
+      const cp=pickAny([1000,1200,5000]),kappaHeat=pickAny([1.3,1.4,1.67]),cv=cp/kappaHeat;
+      return makeProblem(
+        `Poissonova konstanta plynu je <b>${fmt(kappaHeat)}</b> a \\(c_p=${fmt(cp)}\\,\\mathrm{J/(kg\\cdot K)}\\). Urči \\(c_V\\).`,
+        {kappaHeat,cp,cv},
+        [conv('kappaHeat',kappaHeat,'',kappaHeat,''),conv('cp',cp,'J/(kg·K)',cp,'J/(kg·K)')],
+        'cv'
+      );
+    }
+  },
+  rearrange:{
+    kappaHeat:{expr:'cp/cv',steps:[['Vzorec je už pro Poissonovu konstantu vyjádřen.','\\boxed{\\kappa=\\frac{c_p}{c_V}}']]},
+    cp:{expr:'kappaHeat*cv',steps:[['Vynásobíme obě strany veličinou \\(c_V\\).','\\boxed{c_p=\\kappa c_V}']]},
+    cv:{expr:'cp/kappaHeat',steps:[['Vynásobíme obě strany \\(c_V\\) a vydělíme \\(\\kappa\\).','\\boxed{c_V=\\frac{c_p}{\\kappa}}']]}
+  }
+});
+
 const EXTENDED_FORMULA_IDS=new Set([
   'torque_angle','angular_acceleration','rotational_velocity_time','rotational_angle_time',
   'point_mass_moment_inertia','rotational_dynamics','angular_momentum','rotational_impulse',
   'angular_momentum_conservation','rotational_kinetic_energy','orbital_balance',
   'grav_potential_general','stokes_drag','quadratic_drag',
 
-  'microscopic_ideal_gas','monoatomic_internal_energy','adiabatic_process','carnot_efficiency',
+  'microscopic_ideal_gas','monoatomic_internal_energy','adiabatic_process','carnot_efficiency','heat_capacity_ratio',
   'volume_thermal_expansion','capillary_rise',
 
   'progressive_wave_equation','wave_interference_max','standing_wave_string',
@@ -8239,13 +8451,14 @@ const CURRICULUM_STRUCTURE=[
     {name:"Pohyb po kružnici",ids:["angular_speed", "circular_speed", "centripetal"]},
     {name:"Mechanická práce a mechanická energie",ids:["work", "work_angle", "power", "efficiency", "kinetic", "potential", "mechanical_energy_conservation"]},
     {name:"Gravitační pole",ids:["gravitation", "grav_field_intensity", "weight", "orbital_balance", "grav_potential_general", "kepler_third"]},
-    {name:"Mechanika tuhého tělesa",ids:["moment", "torque_angle", "angular_acceleration", "rotational_velocity_time", "rotational_angle_time", "point_mass_moment_inertia", "rotational_dynamics", "angular_momentum", "rotational_impulse", "angular_momentum_conservation", "rotational_kinetic_energy", "lever"]},
+    {name:"Neinerciální vztažné soustavy",ids:["inertial_force"]},
+    {name:"Mechanika tuhého tělesa",ids:["moment", "torque_angle", "angular_acceleration", "rotational_velocity_time", "rotational_angle_time", "point_mass_moment_inertia", "rotational_dynamics", "angular_momentum", "rotational_impulse", "angular_momentum_conservation", "rotational_kinetic_energy", "lever", "center_of_mass_two"]},
     {name:"Mechanika kapalin a plynů",ids:["pressure", "hydrostatic", "hydraulic_press", "archimedes", "volume_flow", "continuity", "bernoulli_horizontal", "stokes_drag", "quadratic_drag"]},
   ]},
   {name:"Molekulová fyzika a termika",subtopics:[
     {name:"Základní poznatky molekulové fyziky",ids:["particle_relative_mass", "molar_relative_mass", "amount", "particles", "molar_volume"]},
     {name:"Vnitřní energie, práce, teplo",ids:["heat", "heat_capacity", "calorimetry_no_calorimeter", "calorimetry_with_calorimeter", "first_thermodynamic_law"]},
-    {name:"Plynné skupenství",ids:["mean_molecular_energy", "rms_molecular_speed", "kinetic_gas_pressure", "ideal_gas", "microscopic_ideal_gas", "gas_states", "isothermal_process", "isochoric_process", "isobaric_process", "adiabatic_process", "monoatomic_internal_energy"]},
+    {name:"Plynné skupenství",ids:["mean_molecular_energy", "rms_molecular_speed", "kinetic_gas_pressure", "ideal_gas", "microscopic_ideal_gas", "gas_states", "isothermal_process", "isochoric_process", "isobaric_process", "adiabatic_process", "monoatomic_internal_energy", "heat_capacity_ratio"]},
     {name:"Kruhový děj a tepelné stroje",ids:["gas_work", "heat_engine_efficiency", "carnot_efficiency"]},
     {name:"Pevné skupenství",ids:["normal_stress", "relative_extension", "hooke_material", "thermal_expansion", "volume_thermal_expansion"]},
     {name:"Kapalné skupenství",ids:["surface_force", "capillary_rise"]},
@@ -12138,6 +12351,530 @@ addCompoundFamily({
 });
 
 
+// ============================================================================
+// V56 – prvních 6 schválených oblastí
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// 1) GRAVITAČNÍ POLE – VRHY
+// ---------------------------------------------------------------------------
+
+addCompoundFamily({
+  id:'vertical_throw_up_v56',
+  area:'Mechanika',scope:'chapter',
+  subchapter:'Kinematika + gravitační pole',homeSubchapter:'Gravitační pole',
+  name:'Svislý vrh vzhůru – doba výstupu a maximální výška',count:2,
+  formulas:['v=v_0-gt','y=v_0t-\\frac12gt^2'],
+  keywords:'svislý vrh vzhůru gravitace maximální výška doba výstupu',
+  targets:[{key:'h',label:'maximální výška h'}],
+  generate(){
+    const v0=pickAny([10,15,20,25,30]);
+    const t=v0/g;
+    const h=v0*t-0.5*g*t*t;
+    return cProblem(
+      `Těleso vyhodíme svisle vzhůru počáteční rychlostí <b>${fmt(v0)} m/s</b>. Odpor vzduchu zanedbej. Urči maximální výšku nad místem vrhu.`,
+      [cGiven('v_0','počáteční rychlost',v0,'m/s')],
+      cTarget('h','h','maximální výška',h,'m'),
+      [
+        cStep('Doba výstupu','0=v_0-gt',`t=\\frac{${texNum(v0)}}{${texNum(g)}}`,'t',t,'s'),
+        cStep('Maximální výška','h=v_0t-\\frac12gt^2',`h=${texNum(v0)}\\cdot${texNum(t)}-\\frac12\\cdot${texNum(g)}\\cdot${texNum(t)}^2`,'h',h,'m')
+      ],
+      [
+        cSym('V nejvyšším bodě je okamžitá rychlost nulová.','0=v_0-gt'),
+        cSym('Z první rovnice vyjádříme čas a dosadíme ho do rovnice pro výšku.','h=v_0\\frac{v_0}{g}-\\frac12g\\left(\\frac{v_0}{g}\\right)^2'),
+        cSym('Teprve po úpravě dostaneme výsledný vztah.','\\boxed{h=\\frac{v_0^2}{2g}}')
+      ],
+      `h=\\frac{${texNum(v0)}^2}{2\\cdot${texNum(g)}}`,
+      `Těleso vystoupí do výšky ${fmtResult(h)} m.`
+    );
+  }
+});
+
+addCompoundFamily({
+  id:'horizontal_throw_v56',
+  area:'Mechanika',scope:'chapter',
+  subchapter:'Kinematika + gravitační pole',homeSubchapter:'Gravitační pole',
+  name:'Vodorovný vrh – doba pádu a vodorovný dolet',count:2,
+  formulas:['h=\\frac12gt^2','x=v_0t'],
+  keywords:'vodorovný vrh pád dolet výška čas gravitace',
+  targets:[{key:'x',label:'vodorovný dolet x'},{key:'v0',label:'počáteční rychlost v₀'}],
+  generate(target){
+    const h=pickAny([5,10,20,45]),v0=pickAny([5,10,15,20]);
+    const t=Math.sqrt(2*h/g),x=v0*t;
+    if(target==='x')return cProblem(
+      `Těleso vyletí vodorovně z výšky <b>${fmt(h)} m</b> rychlostí <b>${fmt(v0)} m/s</b>. Odpor vzduchu zanedbej. Urči vodorovnou vzdálenost místa dopadu.`,
+      [cGiven('h','výška',h,'m'),cGiven('v_0','vodorovná rychlost',v0,'m/s')],
+      cTarget('x','x','vodorovný dolet',x,'m'),
+      [
+        cStep('Doba pádu','h=\\frac12gt^2',`t=\\sqrt{\\frac{2\\cdot${texNum(h)}}{${texNum(g)}}}`,'t',t,'s'),
+        cStep('Vodorovný dolet','x=v_0t',`x=${texNum(v0)}\\cdot${texNum(t)}`,'x',x,'m')
+      ],
+      [cSym('Čas pádu vyjádříme z pohybu ve svislém směru.','t=\\sqrt{\\frac{2h}{g}}'),
+       cSym('Čas dosadíme do rovnoměrného pohybu ve vodorovném směru.','\\boxed{x=v_0\\sqrt{\\frac{2h}{g}}}')],
+      `x=${texNum(v0)}\\sqrt{\\frac{2\\cdot${texNum(h)}}{${texNum(g)}}}`,
+      `Těleso dopadne ve vodorovné vzdálenosti ${fmtResult(x)} m.`
+    );
+    return cProblem(
+      `Těleso vyletí vodorovně z výšky <b>${fmt(h)} m</b> a dopadne ve vodorovné vzdálenosti <b>${fmt(x)} m</b>. Urči počáteční vodorovnou rychlost.`,
+      [cGiven('h','výška',h,'m'),cGiven('x','vodorovný dolet',x,'m')],
+      cTarget('v0','v_0','počáteční rychlost',v0,'m/s'),
+      [
+        cStep('Doba pádu','t=\\sqrt{\\frac{2h}{g}}',`t=\\sqrt{\\frac{2\\cdot${texNum(h)}}{${texNum(g)}}}`,'t',t,'s'),
+        cStep('Počáteční rychlost','v_0=\\frac xt',`v_0=\\frac{${texNum(x)}}{${texNum(t)}}`,'v_0',v0,'m/s')
+      ],
+      [cSym('Čas pádu dosadíme do vodorovného pohybu.','\\boxed{v_0=x\\sqrt{\\frac{g}{2h}}}')],
+      `v_0=${texNum(x)}\\sqrt{\\frac{${texNum(g)}}{2\\cdot${texNum(h)}}}`,
+      `Počáteční rychlost je ${fmtResult(v0)} m/s.`
+    );
+  }
+});
+
+addCompoundFamily({
+  id:'oblique_throw_range_v56',
+  area:'Mechanika',scope:'chapter',
+  subchapter:'Kinematika + gravitační pole',homeSubchapter:'Gravitační pole',
+  name:'Šikmý vrh – rozklad rychlosti, doba letu a dostřel',count:4,
+  formulas:['v_{0x}=v_0\\cos\\alpha','v_{0y}=v_0\\sin\\alpha','0=v_{0y}-gt_\\uparrow','x=v_{0x}\\cdot2t_\\uparrow'],
+  keywords:'šikmý vrh dostřel rozklad rychlosti úhel gravitace',
+  targets:[{key:'x',label:'dostřel x'}],
+  generate(){
+    const v0=pickAny([15,20,25,30]),alpha=pickAny([30,40,45,50,60]);
+    const rad=alpha*Math.PI/180;
+    const vx=v0*Math.cos(rad),vy=v0*Math.sin(rad),tup=vy/g,t=2*tup,x=vx*t;
+    return cProblem(
+      `Těleso je vrženo rychlostí <b>${fmt(v0)} m/s</b> pod úhlem <b>${alpha}°</b> k vodorovnému směru. Dopadne do stejné výšky, ze které bylo vrženo. Odpor vzduchu zanedbej. Urči dostřel.`,
+      [cGiven('v_0','počáteční rychlost',v0,'m/s'),cGiven('\\alpha','úhel vrhu',alpha,'°')],
+      cTarget('x','x','dostřel',x,'m'),
+      [
+        cStep('Vodorovná složka','v_{0x}=v_0\\cos\\alpha',`v_{0x}=${texNum(v0)}\\cos${alpha}^\\circ`,'v_{0x}',vx,'m/s'),
+        cStep('Svislá složka','v_{0y}=v_0\\sin\\alpha',`v_{0y}=${texNum(v0)}\\sin${alpha}^\\circ`,'v_{0y}',vy,'m/s'),
+        cStep('Doba výstupu','0=v_{0y}-gt_\\uparrow',`t_\\uparrow=\\frac{${texNum(vy)}}{${texNum(g)}}`,'t_\\uparrow',tup,'s'),
+        cStep('Dostřel','x=v_{0x}\\cdot2t_\\uparrow',`x=${texNum(vx)}\\cdot2\\cdot${texNum(tup)}`,'x',x,'m')
+      ],
+      [
+        cSym('Rozložíme počáteční rychlost na vodorovnou a svislou složku.','v_{0x}=v_0\\cos\\alpha,\\qquad v_{0y}=v_0\\sin\\alpha'),
+        cSym('Doba celého letu je dvojnásobek doby výstupu.','t=2\\frac{v_0\\sin\\alpha}{g}'),
+        cSym('Tuto dobu dosadíme do vodorovného pohybu.','\\boxed{x=\\frac{2v_0^2\\sin\\alpha\\cos\\alpha}{g}}')
+      ],
+      `x=\\frac{2\\cdot${texNum(v0)}^2\\sin${alpha}^\\circ\\cos${alpha}^\\circ}{${texNum(g)}}`,
+      `Dostřel je ${fmtResult(x)} m.`
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 2) NEINERCIÁLNÍ VZTAŽNÉ SOUSTAVY
+// ---------------------------------------------------------------------------
+
+addCompoundFamily({
+  id:'accelerating_elevator_v56',
+  area:'Mechanika',scope:'subchapter',
+  subchapter:'Neinerciální vztažné soustavy',homeSubchapter:'Neinerciální vztažné soustavy',
+  name:'Zrychlující výtah – tíha, setrvačná síla a zdánlivá tíha',count:3,
+  formulas:['F_G=mg','F_s=ma_s','N=F_G+F_s'],
+  keywords:'výtah setrvačná síla zdánlivá tíha neinerciální',
+  targets:[{key:'N',label:'zdánlivá tíha N'},{key:'a',label:'zrychlení výtahu a'}],
+  generate(target){
+    const m=pickAny([50,60,70,80]),a=pickAny([0.5,1,1.5,2]);
+    const FG=m*g,Fs=m*a,N=FG+Fs;
+    if(target==='N')return cProblem(
+      `Člověk o hmotnosti <b>${m} kg</b> stojí na váze ve výtahu, který se rozjíždí vzhůru se zrychlením <b>${fmt(a)} m/s²</b>. Urči údaj váhy v newtonech.`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('a_s','zrychlení výtahu',a,'m/s²')],
+      cTarget('N','N','zdánlivá tíha',N,'N'),
+      [
+        cStep('Tíhová síla','F_G=mg',`F_G=${m}\\cdot${texNum(g)}`,'F_G',FG,'N'),
+        cStep('Setrvačná síla','F_s=ma_s',`F_s=${m}\\cdot${texNum(a)}`,'F_s',Fs,'N'),
+        cStep('Údaj váhy','N=F_G+F_s',`N=${texNum(FG)}+${texNum(Fs)}`,'N',N,'N')
+      ],
+      [cSym('Ve výtahu zrychlujícím vzhůru se zdánlivá tíha zvětší o setrvačnou sílu.','\\boxed{N=m(g+a_s)}')],
+      `N=${m}(${texNum(g)}+${texNum(a)})`,`Váha ukáže sílu ${fmtResult(N)} N.`
+    );
+    return cProblem(
+      `Člověk o hmotnosti <b>${m} kg</b> stojí ve výtahu rozjíždějícím se vzhůru. Váha ukazuje <b>${fmt(N)} N</b>. Urči zrychlení výtahu.`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('N','údaj váhy',N,'N')],
+      cTarget('a','a_s','zrychlení výtahu',a,'m/s²'),
+      [
+        cStep('Tíhová síla','F_G=mg',`F_G=${m}\\cdot${texNum(g)}`,'F_G',FG,'N'),
+        cStep('Setrvačná síla','F_s=N-F_G',`F_s=${texNum(N)}-${texNum(FG)}`,'F_s',Fs,'N'),
+        cStep('Zrychlení','a_s=\\frac{F_s}{m}',`a_s=\\frac{${texNum(Fs)}}{${m}}`,'a_s',a,'m/s²')
+      ],
+      [cSym('Z rovnice \\(N=mg+ma_s\\) vyjádříme zrychlení.','\\boxed{a_s=\\frac Nm-g}')],
+      `a_s=\\frac{${texNum(N)}}{${m}}-${texNum(g)}`,`Zrychlení výtahu je ${fmtResult(a)} m/s².`
+    );
+  }
+});
+
+addCompoundFamily({
+  id:'accelerating_pendulum_v56',
+  area:'Mechanika',scope:'subchapter',
+  subchapter:'Neinerciální vztažné soustavy',homeSubchapter:'Neinerciální vztažné soustavy',
+  name:'Kulička ve zrychlujícím vozidle – odklon závěsu',count:3,
+  formulas:['F_s=ma_s','F_G=mg','\\tan\\alpha=\\frac{F_s}{F_G}'],
+  keywords:'zrychlující auto kulička závěs odklon setrvačná síla',
+  targets:[{key:'alpha',label:'úhel odklonu α'},{key:'a',label:'zrychlení a'}],
+  generate(target){
+    const m=pickAny([0.2,0.5,1]),a=pickAny([1,2,3,4]);
+    const Fs=m*a,FG=m*g,alpha=Math.atan(Fs/FG)*180/Math.PI;
+    if(target==='alpha')return cProblem(
+      `Kulička visí na niti ve vozidle, které se pohybuje se zrychlením <b>${fmt(a)} m/s²</b>. Urči úhel, o který se nit ustálí od svislice.`,
+      [cGiven('a_s','zrychlení vozidla',a,'m/s²')],
+      cTarget('alpha','\\alpha','úhel odklonu',alpha,'°'),
+      [
+        cStep('Setrvačná síla','F_s=ma_s',`F_s=${texNum(m)}\\cdot${texNum(a)}`,'F_s',Fs,'N'),
+        cStep('Tíhová síla','F_G=mg',`F_G=${texNum(m)}\\cdot${texNum(g)}`,'F_G',FG,'N'),
+        cStep('Odklon niti','\\tan\\alpha=\\frac{F_s}{F_G}',`\\alpha=\\arctan\\frac{${texNum(Fs)}}{${texNum(FG)}}`,'\\alpha',alpha,'°')
+      ],
+      [cSym('Po dosazení sil se hmotnost vykrátí.','\\tan\\alpha=\\frac{ma_s}{mg}=\\frac{a_s}{g}'),
+       cSym('Vyjádříme úhel.','\\boxed{\\alpha=\\arctan\\frac{a_s}{g}}')],
+      `\\alpha=\\arctan\\frac{${texNum(a)}}{${texNum(g)}}`,`Nit se odkloní přibližně o ${fmtResult(alpha)}°.`
+    );
+    return cProblem(
+      `Nit s kuličkou se ve zrychlujícím vozidle ustálí pod úhlem <b>${fmt(alpha)}°</b> od svislice. Urči zrychlení vozidla.`,
+      [cGiven('\\alpha','úhel odklonu',alpha,'°')],
+      cTarget('a','a_s','zrychlení vozidla',a,'m/s²'),
+      [
+        cStep('Poměr sil','\\tan\\alpha=\\frac{F_s}{F_G}',`\\frac{F_s}{F_G}=\\tan${texNum(alpha)}^\\circ`,'','', ''),
+        cStep('Dosadíme síly','\\frac{ma_s}{mg}=\\tan\\alpha',`\\frac{a_s}{${texNum(g)}}=\\tan${texNum(alpha)}^\\circ`,'','', ''),
+        cStep('Zrychlení','a_s=g\\tan\\alpha',`a_s=${texNum(g)}\\tan${texNum(alpha)}^\\circ`,'a_s',a,'m/s²')
+      ],
+      [cSym('Setrvačnou a tíhovou sílu dosadíme do poměru.','\\frac{ma_s}{mg}=\\tan\\alpha'),
+       cSym('Hmotnost se vykrátí.','\\boxed{a_s=g\\tan\\alpha}')],
+      `a_s=${texNum(g)}\\tan${texNum(alpha)}^\\circ`,`Zrychlení vozidla je ${fmtResult(a)} m/s².`
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 3) STATIKA A TĚŽIŠTĚ
+// ---------------------------------------------------------------------------
+
+addCompoundFamily({
+  id:'beam_support_reactions_v56',
+  area:'Mechanika',scope:'subchapter',
+  subchapter:'Mechanika tuhého tělesa',homeSubchapter:'Mechanika tuhého tělesa',
+  name:'Trám na dvou podporách – rovnováha sil a momentů',count:3,
+  formulas:['F_G=mg','R_A+R_B=F_G','R_BL=F_Gx'],
+  keywords:'statika trám dvě podpory reakce rovnováha sil momentů',
+  targets:[{key:'RA',label:'reakce podpory R_A'},{key:'RB',label:'reakce podpory R_B'}],
+  generate(target){
+    const m=pickAny([50,100,150,200]),L=pickAny([4,5,6]),x=pickAny([1,1.5,2,2.5]);
+    const FG=m*g,RB=FG*x/L,RA=FG-RB;
+    if(target==='RB')return cProblem(
+      `Trám délky <b>${L} m</b> je podepřen na obou koncích. Břemeno o hmotnosti <b>${m} kg</b> leží ve vzdálenosti <b>${fmt(x)} m</b> od levé podpory. Hmotnost trámu zanedbej. Urči sílu pravé podpory.`,
+      [cGiven('m','hmotnost břemene',m,'kg'),cGiven('L','vzdálenost podpor',L,'m'),cGiven('x','vzdálenost břemene od levé podpory',x,'m')],
+      cTarget('RB','R_B','reakce pravé podpory',RB,'N'),
+      [
+        cStep('Tíha břemene','F_G=mg',`F_G=${m}\\cdot${texNum(g)}`,'F_G',FG,'N'),
+        cStep('Rovnováha momentů kolem levé podpory','R_BL=F_Gx',`R_B=\\frac{${texNum(FG)}\\cdot${texNum(x)}}{${L}}`,'R_B',RB,'N'),
+        cStep('Kontrola rovnováhy sil','R_A+R_B=F_G',`R_A=${texNum(FG)}-${texNum(RB)}`,'R_A',RA,'N')
+      ],
+      [cSym('Tíhu dosadíme do momentové rovnováhy.','R_BL=mgx'),
+       cSym('Vyjádříme pravou reakci.','\\boxed{R_B=\\frac{mgx}{L}}')],
+      `R_B=\\frac{${m}\\cdot${texNum(g)}\\cdot${texNum(x)}}{${L}}`,`Pravá podpora působí silou ${fmtResult(RB)} N.`
+    );
+    return cProblem(
+      `Trám délky <b>${L} m</b> je podepřen na obou koncích. Břemeno o hmotnosti <b>${m} kg</b> leží ve vzdálenosti <b>${fmt(x)} m</b> od levé podpory. Hmotnost trámu zanedbej. Urči sílu levé podpory.`,
+      [cGiven('m','hmotnost břemene',m,'kg'),cGiven('L','vzdálenost podpor',L,'m'),cGiven('x','vzdálenost břemene od levé podpory',x,'m')],
+      cTarget('RA','R_A','reakce levé podpory',RA,'N'),
+      [
+        cStep('Tíha břemene','F_G=mg',`F_G=${m}\\cdot${texNum(g)}`,'F_G',FG,'N'),
+        cStep('Pravá reakce z momentové rovnováhy','R_B=\\frac{F_Gx}{L}',`R_B=\\frac{${texNum(FG)}\\cdot${texNum(x)}}{${L}}`,'R_B',RB,'N'),
+        cStep('Levá reakce','R_A=F_G-R_B',`R_A=${texNum(FG)}-${texNum(RB)}`,'R_A',RA,'N')
+      ],
+      [cSym('Nejdřív z momentů získáme pravou reakci.','R_B=\\frac{mgx}{L}'),
+       cSym('Tu dosadíme do rovnováhy sil.','\\boxed{R_A=mg\\left(1-\\frac{x}{L}\\right)}')],
+      `R_A=${m}\\cdot${texNum(g)}\\left(1-\\frac{${texNum(x)}}{${L}}\\right)`,`Levá podpora působí silou ${fmtResult(RA)} N.`
+    );
+  }
+});
+
+addCompoundFamily({
+  id:'rod_added_mass_center_v56',
+  area:'Mechanika',scope:'subchapter',
+  subchapter:'Mechanika tuhého tělesa',homeSubchapter:'Mechanika tuhého tělesa',
+  name:'Tyč a přidané závaží – poloha společného těžiště',count:2,
+  formulas:['x_{tyče}=\\frac L2','x_T=\\frac{m_tx_{tyče}+m_zx_z}{m_t+m_z}'],
+  keywords:'těžiště tyč závaží společné těžiště statika',
+  targets:[{key:'xT',label:'poloha těžiště x_T'}],
+  generate(){
+    const L=pickAny([2,3,4]),mt=pickAny([2,4,6]),mz=pickAny([1,2,3]),xz=pickAny([0.2,0.5,1]);
+    const xt=L/2,xT=(mt*xt+mz*xz)/(mt+mz);
+    return cProblem(
+      `Stejnorodá tyč délky <b>${L} m</b> a hmotnosti <b>${mt} kg</b> má na svém levém konci souřadnici 0. Závaží o hmotnosti <b>${mz} kg</b> je upevněno v poloze <b>${fmt(xz)} m</b>. Urči polohu společného těžiště.`,
+      [cGiven('L','délka tyče',L,'m'),cGiven('m_t','hmotnost tyče',mt,'kg'),cGiven('m_z','hmotnost závaží',mz,'kg'),cGiven('x_z','poloha závaží',xz,'m')],
+      cTarget('xT','x_T','poloha těžiště',xT,'m'),
+      [
+        cStep('Těžiště samotné tyče','x_{tyče}=\\frac L2',`x_{tyče}=\\frac{${L}}2`,'x_{tyče}',xt,'m'),
+        cStep('Společné těžiště','x_T=\\frac{m_tx_{tyče}+m_zx_z}{m_t+m_z}',`x_T=\\frac{${mt}\\cdot${texNum(xt)}+${mz}\\cdot${texNum(xz)}}{${mt}+${mz}}`,'x_T',xT,'m')
+      ],
+      [cSym('Poloha těžiště stejnorodé tyče je v jejím středu.','x_{tyče}=\\frac L2'),
+       cSym('Tuto polohu dosadíme do vztahu pro společné těžiště.','\\boxed{x_T=\\frac{m_tL/2+m_zx_z}{m_t+m_z}}')],
+      `x_T=\\frac{${mt}\\cdot${L}/2+${mz}\\cdot${texNum(xz)}}{${mt}+${mz}}`,`Společné těžiště je v poloze ${fmtResult(xT)} m.`
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 4) MECHANIKA KAPALIN – POUZE PLOVOUCÍ TĚLESO
+// ---------------------------------------------------------------------------
+
+addCompoundFamily({
+  id:'floating_body_v56',
+  area:'Mechanika',scope:'subchapter',
+  subchapter:'Mechanika kapalin a plynů',homeSubchapter:'Mechanika kapalin a plynů',
+  name:'Plovoucí těleso – ponořený objem a hustota',count:3,
+  formulas:['F_A=\\rho_kV_pg','F_G=\\rho_tVg','F_A=F_G'],
+  keywords:'plovoucí těleso Archimédův zákon ponořený objem hustota',
+  targets:[{key:'Vp',label:'ponořený objem V_p'},{key:'rhot',label:'hustota tělesa ρ_t'}],
+  generate(target){
+    const rhok=pickAny([800,1000,1200]),rhot=pickAny([400,600,750]),V=pickAny([0.01,0.02,0.05]);
+    const Vp=rhot*V/rhok;
+    const FA=rhok*Vp*g,FG=rhot*V*g;
+    if(target==='Vp')return cProblem(
+      `Těleso o objemu <b>${fmt(V*1000)} l</b> a hustotě <b>${rhot} kg/m³</b> volně plove v kapalině o hustotě <b>${rhok} kg/m³</b>. Urči ponořený objem tělesa.`,
+      [cGiven('V','celkový objem tělesa',V,'m³'),cGiven('\\rho_t','hustota tělesa',rhot,'kg/m³'),cGiven('\\rho_k','hustota kapaliny',rhok,'kg/m³')],
+      cTarget('Vp','V_p','ponořený objem',Vp,'m³'),
+      [
+        cStep('Tíhová síla tělesa','F_G=\\rho_tVg',`F_G=${rhot}\\cdot${texNum(V)}\\cdot${texNum(g)}`,'F_G',FG,'N'),
+        cStep('Při plování platí rovnováha','F_A=F_G',`F_A=${texNum(FG)}`,'F_A',FA,'N'),
+        cStep('Ponořený objem','V_p=\\frac{F_A}{\\rho_kg}',`V_p=\\frac{${texNum(FA)}}{${rhok}\\cdot${texNum(g)}}`,'V_p',Vp,'m³')
+      ],
+      [cSym('Při plování se vztlaková a tíhová síla rovnají.','\\rho_kV_pg=\\rho_tVg'),
+       cSym('Zkrátíme \\(g\\) a vyjádříme ponořený objem.','\\boxed{V_p=V\\frac{\\rho_t}{\\rho_k}}')],
+      `V_p=${texNum(V)}\\frac{${rhot}}{${rhok}}`,`Ponořený objem je ${fmtResult(Vp*1000)} l.`
+    );
+    return cProblem(
+      `Těleso o celkovém objemu <b>${fmt(V*1000)} l</b> plove v kapalině o hustotě <b>${rhok} kg/m³</b>. Ponořeno je <b>${fmt(Vp*1000)} l</b>. Urči hustotu tělesa.`,
+      [cGiven('V','celkový objem',V,'m³'),cGiven('V_p','ponořený objem',Vp,'m³'),cGiven('\\rho_k','hustota kapaliny',rhok,'kg/m³')],
+      cTarget('rhot','\\rho_t','hustota tělesa',rhot,'kg/m³'),
+      [
+        cStep('Vztlaková síla','F_A=\\rho_kV_pg',`F_A=${rhok}\\cdot${texNum(Vp)}\\cdot${texNum(g)}`,'F_A',FA,'N'),
+        cStep('Při plování platí','F_G=F_A',`F_G=${texNum(FA)}`,'F_G',FG,'N'),
+        cStep('Hustota tělesa','\\rho_t=\\frac{F_G}{Vg}',`\\rho_t=\\frac{${texNum(FG)}}{${texNum(V)}\\cdot${texNum(g)}}`,'\\rho_t',rhot,'kg/m³')
+      ],
+      [cSym('Z rovnováhy při plování dostaneme.','\\rho_kV_p=\\rho_tV'),
+       cSym('Vyjádříme hustotu tělesa.','\\boxed{\\rho_t=\\rho_k\\frac{V_p}{V}}')],
+      `\\rho_t=${rhok}\\frac{${texNum(Vp)}}{${texNum(V)}}`,`Hustota tělesa je ${fmtResult(rhot)} kg/m³.`
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 5) MOLÁRNÍ VELIČINY – DALŠÍ PROPOJENÍ
+// ---------------------------------------------------------------------------
+
+addCompoundFamily({
+  id:'molar_density_volume_v56',
+  area:'Molekulová fyzika a termika',scope:'subchapter',
+  subchapter:'Základní poznatky molekulové fyziky',homeSubchapter:'Základní poznatky molekulové fyziky',
+  name:'Hustota, molární hmotnost a molární objem',count:3,
+  formulas:['\\rho=\\frac mV','M=\\frac mn','V_m=\\frac Vn'],
+  keywords:'hustota molární hmotnost molární objem látkové množství',
+  targets:[{key:'Vm',label:'molární objem V_m'},{key:'rho',label:'hustota ρ'},{key:'M',label:'molární hmotnost M'}],
+  generate(target){
+    const M=pickAny([0.018,0.028,0.032,0.044]),rho=pickAny([0.8,1,1.2,1.5]),m=pickAny([0.018,0.036,0.056,0.088]);
+    const n=m/M,V=m/rho,Vm=V/n;
+    if(target==='Vm')return cProblem(
+      `Vzorek má hmotnost <b>${fmt(m*1000)} g</b>, hustotu <b>${fmt(rho)} kg/m³</b> a molární hmotnost <b>${fmt(M*1000)} g/mol</b>. Urči molární objem.`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('\\rho','hustota',rho,'kg/m³'),cGiven('M','molární hmotnost',M,'kg/mol')],
+      cTarget('Vm','V_m','molární objem',Vm,'m³/mol'),
+      [
+        cStep('Objem vzorku','V=\\frac m\\rho',`V=\\frac{${texNum(m)}}{${texNum(rho)}}`,'V',V,'m³'),
+        cStep('Látkové množství','n=\\frac mM',`n=\\frac{${texNum(m)}}{${texNum(M)}}`,'n',n,'mol'),
+        cStep('Molární objem','V_m=\\frac Vn',`V_m=\\frac{${texNum(V)}}{${texNum(n)}}`,'V_m',Vm,'m³/mol')
+      ],
+      [cSym('Do molárního objemu dosadíme \\(V=m/\\rho\\) a \\(n=m/M\\).','V_m=\\frac{m/\\rho}{m/M}'),
+       cSym('Hmotnost se vykrátí.','\\boxed{V_m=\\frac M\\rho}')],
+      `V_m=\\frac{${texNum(M)}}{${texNum(rho)}}`,`Molární objem je ${fmtResult(Vm*1000)} l/mol.`
+    );
+    if(target==='rho')return cProblem(
+      `Vzorek má hmotnost <b>${fmt(m*1000)} g</b>, molární hmotnost <b>${fmt(M*1000)} g/mol</b> a molární objem <b>${fmt(Vm*1000)} l/mol</b>. Urči hustotu.`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('M','molární hmotnost',M,'kg/mol'),cGiven('V_m','molární objem',Vm,'m³/mol')],
+      cTarget('rho','\\rho','hustota',rho,'kg/m³'),
+      [
+        cStep('Látkové množství','n=\\frac mM',`n=\\frac{${texNum(m)}}{${texNum(M)}}`,'n',n,'mol'),
+        cStep('Objem','V=nV_m',`V=${texNum(n)}\\cdot${texNum(Vm)}`,'V',V,'m³'),
+        cStep('Hustota','\\rho=\\frac mV',`\\rho=\\frac{${texNum(m)}}{${texNum(V)}}`,'\\rho',rho,'kg/m³')
+      ],
+      [cSym('Po dosazení se vztah zjednoduší na.','\\boxed{\\rho=\\frac M{V_m}}')],
+      `\\rho=\\frac{${texNum(M)}}{${texNum(Vm)}}`,`Hustota je ${fmtResult(rho)} kg/m³.`
+    );
+    return cProblem(
+      `Vzorek má hmotnost <b>${fmt(m*1000)} g</b>, hustotu <b>${fmt(rho)} kg/m³</b> a molární objem <b>${fmt(Vm*1000)} l/mol</b>. Urči molární hmotnost.`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('\\rho','hustota',rho,'kg/m³'),cGiven('V_m','molární objem',Vm,'m³/mol')],
+      cTarget('M','M','molární hmotnost',M,'kg/mol'),
+      [
+        cStep('Objem vzorku','V=\\frac m\\rho',`V=\\frac{${texNum(m)}}{${texNum(rho)}}`,'V',V,'m³'),
+        cStep('Látkové množství','n=\\frac V{V_m}',`n=\\frac{${texNum(V)}}{${texNum(Vm)}}`,'n',n,'mol'),
+        cStep('Molární hmotnost','M=\\frac mn',`M=\\frac{${texNum(m)}}{${texNum(n)}}`,'M',M,'kg/mol')
+      ],
+      [cSym('Dosadíme objem a látkové množství do molární hmotnosti.','\\boxed{M=\\rho V_m}')],
+      `M=${texNum(rho)}\\cdot${texNum(Vm)}`,`Molární hmotnost je ${fmtResult(M*1000)} g/mol.`
+    );
+  }
+});
+
+addCompoundFamily({
+  id:'relative_mass_ideal_gas_v56',
+  area:'Molekulová fyzika a termika',scope:'chapter',
+  subchapter:'Základní poznatky + plynné skupenství',homeSubchapter:'Plynné skupenství',
+  name:'Relativní hmotnost → molární hmotnost → látkové množství → stavová rovnice',count:3,
+  formulas:['M=M_r\\cdot10^{-3}','n=\\frac mM','pV=nRT'],
+  keywords:'relativní molekulová hmotnost molární hmotnost ideální plyn stavová rovnice',
+  targets:[{key:'V',label:'objem V'},{key:'p',label:'tlak p'}],
+  generate(target){
+    const Mr=pickAny([28,32,44]),M=Mr*1e-3,m=pickAny([0.028,0.056,0.088]),n=m/M,T=pickAny([290,300,320]),p=pickAny([100e3,150e3,200e3]);
+    const V=n*R*T/p;
+    if(target==='V')return cProblem(
+      `Plyn má relativní molekulovou hmotnost <b>${Mr}</b>, hmotnost <b>${fmt(m*1000)} g</b>, teplotu <b>${T} K</b> a tlak <b>${fmt(p/1000)} kPa</b>. Urči jeho objem.`,
+      [cGiven('M_r','relativní molekulová hmotnost',Mr,''),cGiven('m','hmotnost',m,'kg'),cGiven('T','teplota',T,'K'),cGiven('p','tlak',p,'Pa')],
+      cTarget('V','V','objem',V,'m³'),
+      [
+        cStep('Molární hmotnost','M=M_r\\cdot10^{-3}',`M=${Mr}\\cdot10^{-3}`,'M',M,'kg/mol'),
+        cStep('Látkové množství','n=\\frac mM',`n=\\frac{${texNum(m)}}{${texNum(M)}}`,'n',n,'mol'),
+        cStep('Objem ze stavové rovnice','V=\\frac{nRT}{p}',`V=\\frac{${texNum(n)}\\cdot${texNum(R)}\\cdot${T}}{${texNum(p)}}`,'V',V,'m³')
+      ],
+      [cSym('Molární hmotnost a látkové množství dosadíme do stavové rovnice.','\\boxed{V=\\frac{mRT}{M_r\\cdot10^{-3}p}}')],
+      `V=\\frac{${texNum(m)}\\cdot${texNum(R)}\\cdot${T}}{${Mr}\\cdot10^{-3}\\cdot${texNum(p)}}`,
+      `Objem plynu je ${fmtResult(V*1000)} l.`
+    );
+    return cProblem(
+      `Plyn má relativní molekulovou hmotnost <b>${Mr}</b>, hmotnost <b>${fmt(m*1000)} g</b>, teplotu <b>${T} K</b> a objem <b>${fmt(V*1000)} l</b>. Urči tlak.`,
+      [cGiven('M_r','relativní molekulová hmotnost',Mr,''),cGiven('m','hmotnost',m,'kg'),cGiven('T','teplota',T,'K'),cGiven('V','objem',V,'m³')],
+      cTarget('p','p','tlak',p,'Pa'),
+      [
+        cStep('Molární hmotnost','M=M_r\\cdot10^{-3}',`M=${Mr}\\cdot10^{-3}`,'M',M,'kg/mol'),
+        cStep('Látkové množství','n=\\frac mM',`n=\\frac{${texNum(m)}}{${texNum(M)}}`,'n',n,'mol'),
+        cStep('Tlak ze stavové rovnice','p=\\frac{nRT}{V}',`p=\\frac{${texNum(n)}\\cdot${texNum(R)}\\cdot${T}}{${texNum(V)}}`,'p',p,'Pa')
+      ],
+      [cSym('Oba pomocné vztahy dosadíme přímo do stavové rovnice.','\\boxed{p=\\frac{mRT}{M_r\\cdot10^{-3}V}}')],
+      `p=\\frac{${texNum(m)}\\cdot${texNum(R)}\\cdot${T}}{${Mr}\\cdot10^{-3}\\cdot${texNum(V)}}`,
+      `Tlak plynu je ${fmtResult(p/1000)} kPa.`
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 6) c_p, c_V A PRÁCE PLYNU
+// ---------------------------------------------------------------------------
+
+addCompoundFamily({
+  id:'isochoric_heat_firstlaw_v56',
+  area:'Molekulová fyzika a termika',scope:'chapter',
+  subchapter:'Vnitřní energie + plynné skupenství',homeSubchapter:'Plynné skupenství',
+  name:'Izochorický ohřev plynu – teplo a změna vnitřní energie',count:2,
+  formulas:['Q=mc_V\\Delta T','\\Delta U=Q\\quad(W=0)'],
+  keywords:'izochorický děj cv teplo vnitřní energie práce nulová',
+  targets:[{key:'dU',label:'změna vnitřní energie ΔU'},{key:'cv',label:'c_V'}],
+  generate(target){
+    const m=pickAny([0.2,0.5,1]),cv=pickAny([700,720,1000,3100]),dT=pickAny([20,40,60]),Q=m*cv*dT,dU=Q;
+    if(target==='dU')return cProblem(
+      `Plyn o hmotnosti <b>${fmt(m)} kg</b> se při stálém objemu ohřeje o <b>${dT} K</b>. Jeho \\(c_V=${cv}\\,\\mathrm{J/(kg\\cdot K)}\\). Urči změnu vnitřní energie.`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('c_V','měrná tepelná kapacita při stálém objemu',cv,'J/(kg·K)'),cGiven('\\Delta T','změna teploty',dT,'K')],
+      cTarget('dU','\\Delta U','změna vnitřní energie',dU,'J'),
+      [
+        cStep('Dodané teplo','Q=mc_V\\Delta T',`Q=${texNum(m)}\\cdot${cv}\\cdot${dT}`,'Q',Q,'J'),
+        cStep('Při stálém objemu plyn nekoná objemovou práci','\\Delta U=Q',`\\Delta U=${texNum(Q)}`,'\\Delta U',dU,'J')
+      ],
+      [cSym('Protože při izochorickém ději \\(W=0\\), první termodynamický zákon dává.','\\Delta U=Q'),
+       cSym('Dosadíme teplo.','\\boxed{\\Delta U=mc_V\\Delta T}')],
+      `\\Delta U=${texNum(m)}\\cdot${cv}\\cdot${dT}`,`Vnitřní energie se zvětší o ${fmtResult(dU)} J.`
+    );
+    return cProblem(
+      `Plyn o hmotnosti <b>${fmt(m)} kg</b> se při stálém objemu ohřeje o <b>${dT} K</b> a jeho vnitřní energie vzroste o <b>${fmt(dU)} J</b>. Urči \\(c_V\\).`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('\\Delta T','změna teploty',dT,'K'),cGiven('\\Delta U','změna vnitřní energie',dU,'J')],
+      cTarget('cv','c_V','měrná tepelná kapacita při stálém objemu',cv,'J/(kg·K)'),
+      [
+        cStep('Při stálém objemu','Q=\\Delta U',`Q=${texNum(dU)}`,'Q',Q,'J'),
+        cStep('Vyjádření tepelné kapacity','c_V=\\frac{Q}{m\\Delta T}',`c_V=\\frac{${texNum(Q)}}{${texNum(m)}\\cdot${dT}}`,'c_V',cv,'J/(kg·K)')
+      ],
+      [cSym('Dosadíme \\(Q=\\Delta U\\) do kalorimetrického vztahu.','\\boxed{c_V=\\frac{\\Delta U}{m\\Delta T}}')],
+      `c_V=\\frac{${texNum(dU)}}{${texNum(m)}\\cdot${dT}}`,`Měrná tepelná kapacita je ${fmtResult(cv)} J/(kg·K).`
+    );
+  }
+});
+
+addCompoundFamily({
+  id:'isobaric_heat_work_v56',
+  area:'Molekulová fyzika a termika',scope:'chapter',
+  subchapter:'Plynné skupenství + kruhový děj a tepelné stroje',homeSubchapter:'Kruhový děj a tepelné stroje',
+  name:'Izobarický ohřev plynu – dodané teplo, práce a vnitřní energie',count:3,
+  formulas:['Q=mc_p\\Delta T','W=p\\Delta V','Q=\\Delta U+W'],
+  keywords:'izobarický děj cp teplo práce plynu první termodynamický zákon',
+  targets:[{key:'dU',label:'změna vnitřní energie ΔU'},{key:'Q',label:'dodané teplo Q'}],
+  generate(target){
+    const m=pickAny([0.2,0.5,1]),cp=pickAny([1000,1200,5200]),dT=pickAny([20,40,60]),p=pickAny([100e3,150e3]),dV=pickAny([0.01,0.02,0.03]);
+    const Q=m*cp*dT,W=p*dV,dU=Q-W;
+    if(target==='dU')return cProblem(
+      `Plyn o hmotnosti <b>${fmt(m)} kg</b> se při stálém tlaku ohřeje o <b>${dT} K</b>. Jeho \\(c_p=${cp}\\,\\mathrm{J/(kg\\cdot K)}\\), tlak je <b>${fmt(p/1000)} kPa</b> a objem se zvětší o <b>${fmt(dV*1000)} l</b>. Urči změnu vnitřní energie.`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('c_p','měrná tepelná kapacita při stálém tlaku',cp,'J/(kg·K)'),cGiven('\\Delta T','změna teploty',dT,'K'),cGiven('p','tlak',p,'Pa'),cGiven('\\Delta V','změna objemu',dV,'m³')],
+      cTarget('dU','\\Delta U','změna vnitřní energie',dU,'J'),
+      [
+        cStep('Dodané teplo','Q=mc_p\\Delta T',`Q=${texNum(m)}\\cdot${cp}\\cdot${dT}`,'Q',Q,'J'),
+        cStep('Práce plynu','W=p\\Delta V',`W=${texNum(p)}\\cdot${texNum(dV)}`,'W',W,'J'),
+        cStep('První termodynamický zákon','\\Delta U=Q-W',`\\Delta U=${texNum(Q)}-${texNum(W)}`,'\\Delta U',dU,'J')
+      ],
+      [cSym('Teplo a práci dosadíme do prvního termodynamického zákona.','\\boxed{\\Delta U=mc_p\\Delta T-p\\Delta V}')],
+      `\\Delta U=${texNum(m)}\\cdot${cp}\\cdot${dT}-${texNum(p)}\\cdot${texNum(dV)}`,
+      `Vnitřní energie se změní o ${fmtResult(dU)} J.`
+    );
+    return cProblem(
+      `Plyn o hmotnosti <b>${fmt(m)} kg</b> se při stálém tlaku ohřeje o <b>${dT} K</b>. Přitom vykoná práci <b>${fmt(W)} J</b> a vnitřní energie se zvýší o <b>${fmt(dU)} J</b>. Urči dodané teplo.`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('\\Delta U','změna vnitřní energie',dU,'J'),cGiven('W','práce plynu',W,'J')],
+      cTarget('Q','Q','dodané teplo',Q,'J'),
+      [
+        cStep('První termodynamický zákon','Q=\\Delta U+W',`Q=${texNum(dU)}+${texNum(W)}`,'Q',Q,'J'),
+        cStep('Kontrola pomocí izobarického ohřevu','Q=mc_p\\Delta T',`Q=${texNum(m)}\\cdot${cp}\\cdot${dT}`,'Q',Q,'J'),
+        cStep('Výsledek','Q=\\Delta U+W',`Q=${texNum(dU)}+${texNum(W)}`,'Q',Q,'J')
+      ],
+      [cSym('Pro výpočet hlavní neznámé stačí první termodynamický zákon.','\\boxed{Q=\\Delta U+W}')],
+      `Q=${texNum(dU)}+${texNum(W)}`,`Plynu bylo dodáno ${fmtResult(Q)} J tepla.`
+    );
+  }
+});
+
+addCompoundFamily({
+  id:'cp_cv_work_difference_v56',
+  area:'Molekulová fyzika a termika',scope:'chapter',
+  subchapter:'Plynné skupenství + kruhový děj a tepelné stroje',homeSubchapter:'Kruhový děj a tepelné stroje',
+  name:'c_p a c_V – rozdíl tepla se projeví jako práce plynu',count:4,
+  formulas:['\\kappa=\\frac{c_p}{c_V}','Q_p=mc_p\\Delta T','Q_V=mc_V\\Delta T','W=Q_p-Q_V'],
+  keywords:'cp cv kappa práce plynu izobarický izochorický ohřev',
+  targets:[{key:'W',label:'práce W'},{key:'cp',label:'c_p'}],
+  generate(target){
+    const m=pickAny([0.2,0.5,1]),cv=pickAny([700,720,1000]),kappa=pickAny([1.3,1.4,1.5]),cp=kappa*cv,dT=pickAny([20,40,60]);
+    const Qp=m*cp*dT,Qv=m*cv*dT,W=Qp-Qv;
+    if(target==='W')return cProblem(
+      `Stejné množství plynu o hmotnosti <b>${fmt(m)} kg</b> ohřejeme o <b>${dT} K</b>. Pro plyn platí \\(c_V=${fmt(cv)}\\,\\mathrm{J/(kg\\cdot K)}\\) a \\(\\kappa=${fmt(kappa)}\\). Urči práci, kterou plyn při izobarickém ohřevu vykoná oproti izochorickému ohřevu.`,
+      [cGiven('m','hmotnost',m,'kg'),cGiven('c_V','tepelná kapacita při stálém objemu',cv,'J/(kg·K)'),cGiven('\\kappa','Poissonova konstanta',kappa,''),cGiven('\\Delta T','změna teploty',dT,'K')],
+      cTarget('W','W','práce plynu',W,'J'),
+      [
+        cStep('Tepelná kapacita při stálém tlaku','c_p=\\kappa c_V',`c_p=${texNum(kappa)}\\cdot${texNum(cv)}`,'c_p',cp,'J/(kg·K)'),
+        cStep('Teplo při stálém tlaku','Q_p=mc_p\\Delta T',`Q_p=${texNum(m)}\\cdot${texNum(cp)}\\cdot${dT}`,'Q_p',Qp,'J'),
+        cStep('Teplo při stálém objemu','Q_V=mc_V\\Delta T',`Q_V=${texNum(m)}\\cdot${texNum(cv)}\\cdot${dT}`,'Q_V',Qv,'J'),
+        cStep('Práce plynu','W=Q_p-Q_V',`W=${texNum(Qp)}-${texNum(Qv)}`,'W',W,'J')
+      ],
+      [cSym('Za \\(c_p\\) dosadíme \\(\\kappa c_V\\) a obě tepla rovnou odečteme.','\\boxed{W=mc_V\\Delta T(\\kappa-1)}')],
+      `W=${texNum(m)}\\cdot${texNum(cv)}\\cdot${dT}(${texNum(kappa)}-1)`,
+      `Práce plynu je ${fmtResult(W)} J.`
+    );
+    return cProblem(
+      `Plyn má \\(c_V=${fmt(cv)}\\,\\mathrm{J/(kg\\cdot K)}\\) a Poissonovu konstantu <b>${fmt(kappa)}</b>. Urči \\(c_p\\).`,
+      [cGiven('c_V','tepelná kapacita při stálém objemu',cv,'J/(kg·K)'),cGiven('\\kappa','Poissonova konstanta',kappa,'')],
+      cTarget('cp','c_p','tepelná kapacita při stálém tlaku',cp,'J/(kg·K)'),
+      [
+        cStep('Poměr tepelných kapacit','\\kappa=\\frac{c_p}{c_V}',`c_p=${texNum(kappa)}\\cdot${texNum(cv)}`,'c_p',cp,'J/(kg·K)'),
+        cStep('Teplo při stálém tlaku','Q_p=mc_p\\Delta T',`Q_p=${texNum(m)}\\cdot${texNum(cp)}\\cdot${dT}`,'Q_p',Qp,'J'),
+        cStep('Teplo při stálém objemu','Q_V=mc_V\\Delta T',`Q_V=${texNum(m)}\\cdot${texNum(cv)}\\cdot${dT}`,'Q_V',Qv,'J'),
+        cStep('Rozdíl je práce','W=Q_p-Q_V',`W=${texNum(Qp)}-${texNum(Qv)}`,'W',W,'J')
+      ],
+      [cSym('Pro hlavní neznámou použijeme přímo definici Poissonovy konstanty.','\\boxed{c_p=\\kappa c_V}')],
+      `c_p=${texNum(kappa)}\\cdot${texNum(cv)}`,`Měrná tepelná kapacita je ${fmtResult(cp)} J/(kg·K).`
+    );
+  }
+});
+
+
 const COMPOUND_AREAS=['Mechanika','Molekulová fyzika a termika','Kmitání a vlnění','Elektřina a magnetismus','Optika','Moderní fyzika'];
 function getCompoundFamily(id){return COMPOUND_FAMILIES.find(x=>x.id===id)}
 function compoundTargetVariantCount(){return COMPOUND_FAMILIES.reduce((n,f)=>n+f.targets.length,0)}
@@ -13369,4 +14106,25 @@ document.getElementById('homeSearch').addEventListener('input',e=>{
   typeset();
 });
 renderHome();
-</script></body></html>
+</script>
+<!--
+V56 schválený další plán podle uživatele:
+7 ANO
+8 ANO
+9 NE
+10 NE
+11 ANO
+12 ANO
+13 NE
+14 ANO
+15 ANO
+16 ANO
+17 ANO pouze Youngův experiment
+18 ANO
+19 NE
+20 ANO
+21 NE
+22 ANO
+-->
+
+</body></html>
