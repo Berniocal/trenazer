@@ -9380,8 +9380,115 @@ function generateProblemSeeded(f,u,seed){
     else delete SCENARIO_COUNTERS[f.id];
   }
 }
+
+const COMPOUND_EXTRA_UNIT_VARIANTS={
+  'm³/mol':[{u:'m³/mol',f:1},{u:'dm³/mol',f:1e-3},{u:'l/mol',f:1e-3}],
+  'J/mol':[{u:'MJ/mol',f:1e6},{u:'kJ/mol',f:1e3},{u:'J/mol',f:1}],
+  'J/(mol·K)':[{u:'kJ/(mol·K)',f:1e3},{u:'J/(mol·K)',f:1}],
+  'kg·m/s':[{u:'kg·m/s',f:1}],
+  'm/s²':[{u:'m/s²',f:1}],
+  'rad':[{u:'rad',f:1}], '°':[{u:'°',f:1}], '1/s':[{u:'1/s',f:1}],
+  '1/K':[{u:'1/K',f:1}], '1/°C':[{u:'1/°C',f:1}],
+  'W/m²':[{u:'kW/m²',f:1e3},{u:'W/m²',f:1}],
+  'J/m³':[{u:'MJ/m³',f:1e6},{u:'kJ/m³',f:1e3},{u:'J/m³',f:1}],
+  'kg/m':[{u:'kg/m',f:1},{u:'g/m',f:1e-3}],
+  'N/m²':[{u:'MPa',f:1e6},{u:'kPa',f:1e3},{u:'Pa',f:1}],
+  'C/kg':[{u:'C/kg',f:1},{u:'mC/kg',f:1e-3},{u:'µC/kg',f:1e-6}],
+  'Gy':[{u:'Gy',f:1},{u:'mGy',f:1e-3},{u:'µGy',f:1e-6}],
+  'Sv':[{u:'Sv',f:1},{u:'mSv',f:1e-3},{u:'µSv',f:1e-6}]
+};
+function compoundUnitVariants(g){
+  if(!g||!Number.isFinite(g.value))return [];
+  const unit=g.unit||'',out=[];
+  if(unit==='K'){
+    const isDelta=/\\Delta\s*T|ΔT|změna teploty/i.test((g.s||'')+' '+(g.name||''));
+    out.push({u:'K',f:1,offset:0});
+    out.push({u:'°C',f:1,offset:isDelta?0:-273.15});
+  }else{
+    const base=(UNIT_VARIANTS[unit]||COMPOUND_EXTRA_UNIT_VARIANTS[unit]||[]);
+    base.forEach(o=>out.push({...o,offset:0}));
+    if(!base.length)out.push({u:unit,f:1,offset:0});
+  }
+  if(!unit&&!out.length)out.push({u:'',f:1,offset:0});
+  return out;
+}
+function compoundDisplayValueFor(g,opt){
+  if(g.unit==='K'&&opt.u==='°C'&&opt.offset===-273.15)return g.value-273.15;
+  return g.value/opt.f;
+}
+function compoundSiValueFromDisplay(g,value,opt){
+  if(g.unit==='K'&&opt.u==='°C'&&opt.offset===-273.15)return value+273.15;
+  return value*opt.f;
+}
+function compoundToken(value,unit){return `${fmt(value)}${unit?' '+unit:''}`}
+function compoundTokenRegex(token){
+  const esc=token.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return new RegExp(esc+'(?![A-Za-zÀ-ž0-9/·²³⁻])','g');
+}
+function compoundTextHasToken(text,token){
+  return compoundTokenRegex(token).test(text);
+}
+function compoundReplaceToken(text,oldToken,newToken){
+  return text.replace(compoundTokenRegex(oldToken),newToken);
+}
+function compoundFindDisplayedGiven(text,g){
+  const candidates=compoundUnitVariants(g).map(opt=>{
+    const raw=compoundDisplayValueFor(g,opt),visible=visibleRoundedNumber(raw);
+    return {opt,raw,visible,token:compoundToken(visible,opt.u)};
+  }).sort((a,b)=>b.token.length-a.token.length);
+  const found=candidates.find(x=>compoundTextHasToken(text,x.token));
+  if(found)return found;
+  if(g.unit==='m³'){
+    const raw=g.value*1000,visible=visibleRoundedNumber(raw),token=compoundToken(visible,'l');
+    if(compoundTextHasToken(text,token))return {opt:{u:'l',f:1e-3,offset:0},raw,visible,token};
+  }
+  if(g.unit==='m³/mol'){
+    const raw=g.value*1000,visible=visibleRoundedNumber(raw),token=compoundToken(visible,'l/mol');
+    if(compoundTextHasToken(text,token))return {opt:{u:'l/mol',f:1e-3,offset:0},raw,visible,token};
+  }
+  const raw=g.value,visible=visibleRoundedNumber(raw);
+  return {opt:{u:g.unit||'',f:1,offset:0},raw,visible,token:compoundToken(visible,g.unit||'')};
+}
+function compoundAlternativeDisplays(g,current){
+  const seen=new Set();
+  return compoundUnitVariants(g).map(opt=>{
+    const raw=compoundDisplayValueFor(g,opt),visible=visibleRoundedNumber(raw);
+    const si=compoundSiValueFromDisplay(g,visible,opt);
+    const rel=Math.abs(si-g.value)/Math.max(1,Math.abs(g.value));
+    return {opt,raw,visible,si,token:compoundToken(visible,opt.u),rel};
+  }).filter(x=>{
+    const key=x.opt.u+'|'+x.visible;if(seen.has(key))return false;seen.add(key);
+    return x.rel<1e-10&&x.token!==current.token&&normalDisplayNumber(x.visible);
+  });
+}
+function prepareCompoundProblem(f,target,p){
+  if(!p||!Array.isArray(p.givens))return p;
+  const q={...p,givens:p.givens.map(g=>({...g})),text:p.text,conversions:[]};
+  q.givens.forEach(g=>{
+    const shown=compoundFindDisplayedGiven(q.text,g);
+    g.displayValue=shown.visible;g.displayUnit=shown.opt.u;g.siValue=g.value;g.siUnit=g.unit||'';
+    g._shownToken=shown.token;
+  });
+  const possible=q.givens.map(g=>({g,opts:compoundAlternativeDisplays(g,{token:g._shownToken})})).filter(x=>x.opts.length);
+  let count=0;
+  if(possible.length){
+    if(practiceDifficulty===1)count=Math.random()<0.42?1:0;
+    else count=Math.min(possible.length,Math.random()<0.72?2:1);
+  }
+  const pool=[...possible];
+  for(let i=0;i<count&&pool.length;i++){
+    const x=pool.splice(ri(pool.length),1)[0],chosen=pickAny(x.opts);
+    if(compoundTextHasToken(q.text,x.g._shownToken)){
+      q.text=compoundReplaceToken(q.text,x.g._shownToken,chosen.token);
+      x.g.displayValue=chosen.visible;x.g.displayUnit=chosen.opt.u;x.g._shownToken=chosen.token;
+    }
+  }
+  q.conversions=q.givens.map(g=>({s:g.s,name:g.name,displayValue:g.displayValue,displayUnit:g.displayUnit,siValue:g.value,siUnit:g.unit||''}));
+  q.givens.forEach(g=>{delete g._shownToken});
+  return q;
+}
 function generateCompoundSeeded(f,target,seed){
-  return withProblemSeed(seed,()=>f.generate(target));
+  return withProblemSeed(seed,()=>prepareCompoundProblem(f,target,f.generate(target)));
 }
 
 function wantConversion(level, probability=.65){
@@ -13081,7 +13188,24 @@ function backToCompoundSetup(){
   compoundProblem=null;
   renderCompoundFamilyPage();
 }
-function compoundGivenHtml(p){return `<div class="compoundGiven">${p.givens.map(g=>`<div class="compoundGivenItem"><strong>${mi(g.s+'='+texNum(g.value)+'\\,'+texUnit(g.unit))}</strong><div class="mini">${g.name}</div></div>`).join('')}</div>`}
+function compoundGivenHtml(p){
+  return `<div class="compoundGiven">${p.givens.map(g=>{
+    const value=Number.isFinite(g.displayValue)?g.displayValue:g.value;
+    const unit=g.displayUnit??g.unit;
+    return `<div class="compoundGivenItem"><strong>${mi(g.s+'='+texNum(value)+'\\,'+texUnit(unit))}</strong><div class="mini">${g.name}</div></div>`;
+  }).join('')}</div>`;
+}
+function compoundConversionsHtml(p){
+  const cs=p.conversions||p.givens.map(g=>({s:g.s,name:g.name,displayValue:g.displayValue??g.value,displayUnit:g.displayUnit??g.unit,siValue:g.value,siUnit:g.unit}));
+  if(!cs.length)return '';
+  return `<div>${cs.map(c=>{
+    const sameUnit=(c.displayUnit||'')===(c.siUnit||'');
+    const sameValue=Math.abs((c.displayValue??0)-(c.siValue??0))<1e-12;
+    const first=`${c.s}=${texNum(c.displayValue)}\\,${texUnit(c.displayUnit)}`;
+    const second=`${c.s}=${texNum(c.siValue)}\\,${texUnit(c.siUnit)}`;
+    return `<div class="conversionBlock"><span class="conversionLine">${mi(first)}</span>${(sameUnit&&sameValue)?'':`<span class="conversionLine">${mi(second)}</span>`}</div>`;
+  }).join('')}</div>`;
+}
 function compoundSeqHtml(p){
   return `<div class="compoundSolutionVariant"><h4>Varianta A – postupně přes mezivýsledky</h4><div class="smallNote">Nejdřív spočítáme potřebné pomocné veličiny. Hlavní neznámá je až poslední krok.</div>${p.seq.map((s,i)=>`<div class="compoundStep"><div class="compoundStepTitle">${i+1}. ${s.title}</div><div>${md(s.formula)}</div><div class="math-comment">Dosazení:</div><div>${md(s.sub)}</div><div>${md(cBox(s.s,s.value,s.unit))}</div></div>`).join('')}</div>`;
 }
@@ -13090,7 +13214,7 @@ function compoundSymbolicHtml(p){
 }
 function compoundSolutionHtml(){
   const f=getCompoundFamily(compoundFamilyId),p=compoundProblem;if(!f||!p)return '';
-  return `<details class="fullSolution" ontoggle="typeset()"><summary>👁 Zobrazit celé řešení</summary><div class="fullContent"><div class="solutionSection"><h4>1. Co hledáme a jaké vztahy použijeme</h4><div>${mi(p.target.s+'=?')}</div><div class="compoundRelationList">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div></div><div class="solutionSection"><h4>2. Zápis a jednotky</h4>${compoundGivenHtml(p)}<div class="smallNote">Hodnoty jsou už zapsané v jednotkách, se kterými dále počítáme.</div></div><div class="solutionCompareNote">Jsou zobrazené obě cesty řešení. Varianta A počítá pomocné mezivýsledky, varianta B vztahy dosazuje obecně do sebe a čísla použije až na konci.</div>${compoundSeqHtml(p)+compoundSymbolicHtml(p)}<div class="compoundResult"><b>Odpověď:</b> ${p.answer}</div></div></details>`;
+  return `<details class="fullSolution" ontoggle="typeset()"><summary>👁 Zobrazit celé řešení</summary><div class="fullContent"><div class="solutionSection"><h4>1. Co hledáme a jaké vztahy použijeme</h4><div>${mi(p.target.s+'=?')}</div><div class="compoundRelationList">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div></div><div class="solutionSection"><h4>2. Zápis</h4>${compoundGivenHtml(p)}</div><div class="solutionSection"><h4>3. Převody jednotek</h4>${compoundConversionsHtml(p)}<div class="smallNote">Po převodu dál počítáme už s převedenými hodnotami; převod neopakujeme v každém vzorci.</div></div><div class="solutionCompareNote">Jsou zobrazené obě cesty řešení. Varianta A počítá pomocné mezivýsledky, varianta B vztahy dosazuje obecně do sebe a čísla použije až na konci.</div>${compoundSeqHtml(p)+compoundSymbolicHtml(p)}<div class="compoundResult"><b>Odpověď:</b> ${p.answer}</div></div></details>`;
 }
 function renderCompoundExercise(){
   const f=getCompoundFamily(compoundFamilyId),p=compoundProblem;if(!f||!p)return;
@@ -13104,6 +13228,7 @@ function compoundCopyHtml(kind){
   let h=`<h2>Složená úloha – ${f.name}</h2><p>${p.text}</p>`;
   if(kind==='task')return h;
   h+=`<h3>Řešení</h3><p><b>Použité vztahy:</b></p>${f.formulas.map(x=>`<div>${md(x)}</div>`).join('')}`;
+  h+=`<h4>Zápis</h4>${compoundGivenHtml(p)}<h4>Převody jednotek</h4>${compoundConversionsHtml(p)}`;
   h+=compoundSeqHtml(p);
   h+=compoundSymbolicHtml(p);
   h+=`<p><b>Odpověď:</b> ${p.answer}</p>`;return h;
@@ -14533,6 +14658,8 @@ function practiceCombinedHtml(item,number){
       <h4>Řešení příkladu ${number}</h4>
       <p><b>Použité vztahy:</b></p>
       ${f.formulas.map(x=>`<div>${md(x)}</div>`).join('')}
+      <h4>Zápis</h4>${compoundGivenHtml(p)}
+      <h4>Převody jednotek</h4>${compoundConversionsHtml(p)}
       ${compoundSeqHtml(p)}${compoundSymbolicHtml(p)}
       <p><b>Odpověď:</b> ${p.answer}</p>`;
   }
