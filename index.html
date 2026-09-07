@@ -211,6 +211,70 @@
   text-align:left
 }
 .compoundSubRow.button:disabled{opacity:.42}
+.compoundTreeSubchapter{
+  border-top:1px solid #edf0f5;
+  background:#fbfcfe
+}
+.compoundTreeSubchapter:first-child{border-top:0}
+.compoundTreeSubchapter>summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:11px 10px;
+  font-weight:780;
+  color:#2d394b
+}
+.compoundTreeSubchapter>summary::-webkit-details-marker{display:none}
+.compoundTreeSubchapter[open]>summary{background:#f4f7fd}
+.compoundTreeFamilyList{
+  display:grid;
+  gap:6px;
+  padding:6px 8px 10px 20px
+}
+.compoundTreeFamily{
+  width:100%;
+  border:1px solid #e2e8f2;
+  background:#fff;
+  border-radius:11px;
+  padding:10px 11px;
+  text-align:left
+}
+.compoundTreeFamily:hover{
+  border-color:#b8c8ec;
+  background:#f8faff
+}
+.compoundTreeFamily .recipeFormulas{margin-top:7px}
+.compoundTreeFamily .recipeFormula{font-size:12px;padding:4px 7px}
+.compoundFamilyPageIntro{
+  margin:12px 0 16px;
+  padding:12px 14px;
+  border:1px solid #dce5f5;
+  border-radius:13px;
+  background:#f8faff;
+  color:#526274;
+  line-height:1.5
+}
+.builderKind{
+  display:inline-flex;
+  align-items:center;
+  margin-left:7px;
+  font-size:10px;
+  font-weight:850;
+  border-radius:999px;
+  padding:3px 6px;
+  color:#5d6d83;
+  background:#eef3fb;
+  border:1px solid #dde5f1
+}
+.builderKind.compound{
+  color:#5e4692;
+  background:#f5f0ff;
+  border-color:#e0d6f4
+}
+
 .compoundMobileBack{
   display:none;
   margin-bottom:11px
@@ -514,7 +578,7 @@ mjx-container[jax="SVG"][display="true"]{max-width:100%;overflow-x:auto;overflow
     <div id="homeModeNote" class="homeModeNote"></div>
     <div class="searchWrap"><span>⌕</span><input id="homeSearch" class="search" placeholder="Hledat vzorec, veličinu nebo název…"></div>
     <div id="singleHomeActions" class="actions">
-      <button class="btn primary" onclick="openBuilder()">🧩 Sestavit procvičování</button>
+      <button class="btn primary" onclick="openBuilder()">🧩 Sestavit společné procvičování</button>
     </div>
     <div id="searchResults" class="searchResults hidden"></div>
     <div id="catalogWrap">
@@ -524,9 +588,9 @@ mjx-container[jax="SVG"][display="true"]{max-width:100%;overflow-x:auto;overflow
     </div>
   </section>
   <section id="builderView" class="card builder hidden">
-    <div class="builderHead"><div><h2>Sestavit procvičování</h2><div class="smallNote" style="margin-top:5px">Vyber kapitoly, podkapitoly nebo konkrétní vztahy.</div></div><button class="btn" onclick="showHome()">← Zpět</button></div>
+    <div class="builderHead"><div><h2>Sestavit procvičování</h2><div class="smallNote" style="margin-top:5px">Do jednoho procvičování můžeš libovolně míchat samostatné vztahy i složené skupiny vztahů.</div></div><button class="btn" onclick="showHome()">← Zpět</button></div>
     <div class="builderGrid"><div id="builderTree" class="tree"></div><div class="settings">
-      <div class="field"><label>Obsahová úroveň</label><select id="contentLevelSelect" onchange="builderContentLevel=this.value;renderBuilder()"><option value="core">Jádro</option><option value="all">Jádro + rozšířené</option><option value="extended">Pouze rozšířené</option></select><div class="smallNote" style="margin-top:6px">Jádro je výchozí běžné gymnaziální procvičování. Rozšířené obsahuje specializovanější vztahy.</div></div>
+      <div class="field"><label>Obsahová úroveň</label><select id="contentLevelSelect" onchange="builderContentLevel=this.value;renderBuilder()"><option value="core">Jádro</option><option value="all">Jádro + rozšířené</option><option value="extended">Pouze rozšířené</option></select><div class="smallNote" style="margin-top:6px">Jádro je výchozí běžné gymnaziální procvičování. Rozšířené obsahuje specializovanější samostatné vztahy; složené skupiny zůstávají dostupné.</div></div>
       <div class="field"><label>Počet úloh</label><input id="testCount" type="number" min="1" max="50" value="10" oninput="updateBuilderSummary()"></div>
       <button class="btn primary" style="width:100%" onclick="startPractice()">Spustit procvičování</button><div id="builderFb" class="feedback"></div>
     </div></div>
@@ -9279,6 +9343,47 @@ function generateProblem(f,u){
   return precise?applyScenarioVariety(f,u,appendConstantsToProblem(f,precise)):null;
 }
 
+
+function randomProblemSeed(){
+  try{
+    if(window.crypto?.getRandomValues){
+      const a=new Uint32Array(1);
+      crypto.getRandomValues(a);
+      return a[0]>>>0;
+    }
+  }catch(e){}
+  return ((Date.now()>>>0) ^ Math.floor(Math.random()*0xffffffff))>>>0;
+}
+function seededRandom(seed){
+  let a=seed>>>0;
+  return function(){
+    a|=0;
+    a=(a+0x6D2B79F5)|0;
+    let t=Math.imul(a^(a>>>15),1|a);
+    t=(t+Math.imul(t^(t>>>7),61|t))^t;
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+function withProblemSeed(seed,fn){
+  const old=Math.random;
+  Math.random=seededRandom(seed>>>0);
+  try{return fn()}finally{Math.random=old}
+}
+function generateProblemSeeded(f,u,seed){
+  const had=Object.prototype.hasOwnProperty.call(SCENARIO_COUNTERS,f.id);
+  const old=SCENARIO_COUNTERS[f.id];
+  SCENARIO_COUNTERS[f.id]=(seed>>>0);
+  try{
+    return withProblemSeed(seed,()=>generateProblem(f,u));
+  }finally{
+    if(had)SCENARIO_COUNTERS[f.id]=old;
+    else delete SCENARIO_COUNTERS[f.id];
+  }
+}
+function generateCompoundSeeded(f,target,seed){
+  return withProblemSeed(seed,()=>f.generate(target));
+}
+
 function wantConversion(level, probability=.65){
   // 1 = běžné převody. Povolí jen převody dříve označené jako základní/běžné.
   if(practiceDifficulty===1){
@@ -10558,10 +10663,11 @@ let compoundHomeCount=0;
 let compoundTreeSelection={type:'none',chapter:'',subchapter:''};
 let compoundHomeScreen='tree';
 const compoundExpandedChapters=new Set();
+const compoundExpandedSubchapters=new Set();
 function compoundIsMobile(){
   return !!(window.matchMedia&&window.matchMedia('(max-width:850px)').matches);
 }
-let currentId='density', currentUnknown=null, problem=null, mode='single', queue=[], qpos=0, practiceDifficulty=1, numberDifficulty=1;
+let currentId='density', currentUnknown=null, problem=null, currentProblemSeed=null, mode='single', queue=[], qpos=0, practiceDifficulty=1, numberDifficulty=1;
 function getFormula(id){return formulas.find(f=>f && f.id===id)}
 function varMeta(f,k){return f.vars.find(v=>v.k===k)}
 function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
@@ -10606,6 +10712,7 @@ let compoundTargetKey=null;
 let compoundSolutionMode='A';
 let compoundSearch='';
 let compoundProblem=null;
+let compoundProblemSeed=null;
 
 function cGiven(s,name,value,unit){return {s,name,value,unit}}
 function cTarget(key,s,name,value,unit){return {key,s,name,value,unit}}
@@ -12958,18 +13065,21 @@ function renderCompoundWizard(preserveFocus=false){
 
 function generateCompoundProblem(){
   const f=getCompoundFamily(compoundFamilyId);if(!f||!compoundTargetKey)return;
-  compoundProblem=f.generate(compoundTargetKey);
+  compoundProblemSeed=randomProblemSeed();
+  compoundProblem=generateCompoundSeeded(f,compoundTargetKey,compoundProblemSeed);
   mode='compound';currentId=compoundProblem.sketchId||f.sketchId||'density';
   show('exerciseView');armPhoneBack();renderCompoundExercise();
 }
-function newCompoundProblem(){const f=getCompoundFamily(compoundFamilyId);if(!f)return;compoundProblem=f.generate(compoundTargetKey);renderCompoundExercise()}
+function newCompoundProblem(){
+  const f=getCompoundFamily(compoundFamilyId);if(!f)return;
+  compoundProblemSeed=randomProblemSeed();
+  compoundProblem=generateCompoundSeeded(f,compoundTargetKey,compoundProblemSeed);
+  renderCompoundExercise();
+}
 function backToCompoundSetup(){
-  mode='single';
-  homeMode='compound';
-  if(compoundIsMobile())compoundHomeScreen='packages';
-  const layout=document.querySelector('#exerciseView .exerciseLayout');if(layout)layout.classList.remove('compoundLayout');
-  show('homeView');
-  renderHome();
+  mode='compoundPage';
+  compoundProblem=null;
+  renderCompoundFamilyPage();
 }
 function compoundGivenHtml(p){return `<div class="compoundGiven">${p.givens.map(g=>`<div class="compoundGivenItem"><strong>${mi(g.s+'='+texNum(g.value)+'\\,'+texUnit(g.unit))}</strong><div class="mini">${g.name}</div></div>`).join('')}</div>`}
 function compoundSeqHtml(p){
@@ -12986,7 +13096,7 @@ function renderCompoundExercise(){
   const f=getCompoundFamily(compoundFamilyId),p=compoundProblem;if(!f||!p)return;
   const layout=document.querySelector('#exerciseView .exerciseLayout');if(layout)layout.classList.add('compoundLayout');
   const banner=document.getElementById('testBanner');banner.classList.remove('hidden');banner.innerHTML=`<div><b>Složená úloha</b><span>${f.area} · ${COMPOUND_SCOPE_META[f.scope].short} · ${f.count} vztahy</span></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" onclick="backToCompoundSetup()">← Výběr balíčku</button><button class="btn small" onclick="showHome()">Ukončit</button></div>`;
-  document.getElementById('exerciseMain').innerHTML=`<div class="breadcrumb">${f.area} › ${f.homeSubchapter||f.subchapter} › Složené úlohy</div><div class="titleRow"><h2>${f.name}</h2><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${compoundScopePill(f)}<span class="pill">${f.count} vztahy</span></div></div><div class="compoundRelationList">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div><div class="problem" id="problemBox"><div class="problemLabel">Zadání</div><p>${p.text}</p>${p.sketchId?formulaSketchHtml(getFormula(p.sketchId),true):(f.sketchId?formulaSketchHtml(getFormula(f.sketchId),true):'')}<div class="problemActions"><button class="btn primary" onclick="newCompoundProblem()">↻ Nový příklad</button></div><div class="copyActions"><button class="btn small" onclick="copyCompoundToWord('task')">📋 Kopírovat zadání</button><button class="btn small" onclick="copyCompoundToWord('solution')">📋 Zadání + řešení</button></div></div>${compoundSolutionHtml()}<div class="bottomNav"><button class="btn" onclick="backToCompoundSetup()">← Zpět k balíčkům</button><div class="right"><button class="btn primary" onclick="newCompoundProblem()">Nový příklad</button></div></div>`;
+  document.getElementById('exerciseMain').innerHTML=`<div class="breadcrumb">${f.area} › ${f.homeSubchapter||f.subchapter} › Složené úlohy</div><div class="titleRow"><h2>${f.name}</h2><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${compoundScopePill(f)}<span class="pill">${f.count} vztahy</span></div></div><div class="compoundRelationList">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div><div class="problem" id="problemBox"><div class="problemLabel">Zadání</div><p>${p.text}</p>${p.sketchId?formulaSketchHtml(getFormula(p.sketchId),true):(f.sketchId?formulaSketchHtml(getFormula(f.sketchId),true):'')}<div class="problemActions"><button class="btn primary" onclick="newCompoundProblem()">↻ Nový příklad</button><button class="btn" onclick="shareCurrentExample()">🔗 Sdílet příklad</button></div><div class="copyActions"><button class="btn small" onclick="copyCompoundToWord('task')">📋 Kopírovat zadání</button><button class="btn small" onclick="copyCompoundToWord('solution')">📋 Zadání + řešení</button></div></div>${compoundSolutionHtml()}<div class="bottomNav"><button class="btn" onclick="backToCompoundSetup()">← Zpět k balíčkům</button><div class="right"><button class="btn primary" onclick="newCompoundProblem()">Nový příklad</button></div></div>`;
   typeset();
 }
 function compoundCopyHtml(kind){
@@ -13003,6 +13113,92 @@ async function copyCompoundToWord(kind){
 }
 
 
+
+function openCompoundFamilyPage(id,fromBack=false){
+  const f=getCompoundFamily(id);
+  if(!f)return;
+  const chapter=curriculumChapterFromCompoundArea(f.area);
+  compoundTreeSelection={type:'subchapter',chapter,subchapter:compoundTreeSubchapterName(f)};
+  compoundExpandedChapters.add(chapter);
+  compoundFamilyId=id;
+  compoundTargetKey=null;
+  compoundProblem=null;
+  compoundProblemSeed=null;
+  homeMode='compound';
+  mode='compoundPage';
+  const alreadyInExercise=!document.getElementById('exerciseView').classList.contains('hidden');
+  show('exerciseView');
+  if(!alreadyInExercise&&!fromBack)armPhoneBack();
+  renderCompoundFamilyPage();
+}
+function renderCompoundFamilyPage(){
+  const f=getCompoundFamily(compoundFamilyId);
+  if(!f)return;
+  const layout=document.querySelector('#exerciseView .exerciseLayout');
+  if(layout)layout.classList.add('compoundLayout');
+  const banner=document.getElementById('testBanner');
+  if(banner)banner.classList.add('hidden');
+  const mobileRight=document.querySelector('#exerciseView .mobileBar .right');
+  if(mobileRight)mobileRight.style.visibility='hidden';
+  const sketch=f.sketchId?formulaSketchHtml(getFormula(f.sketchId),false):'';
+  document.getElementById('exerciseMain').innerHTML=`
+    <div class="breadcrumb">${f.area} › ${f.homeSubchapter||f.subchapter} › Více vztahů</div>
+    <div class="titleRow">
+      <h2>${f.name}</h2>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${compoundScopePill(f)}<span class="pill">${f.count} vztahy</span></div>
+    </div>
+    <div class="compoundFamilyPageIntro">Tato skupina propojuje několik základních vztahů v jedné úloze. Vyber hlavní neznámou; ta zůstane hlavní až do konečného výsledku.</div>
+    <div class="sectionTitle">Použité vztahy</div>
+    <div class="compoundRelationList">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div>
+    ${sketch}
+    <div class="sectionTitle" style="margin:18px 0 9px">Co chceš vypočítat</div>
+    <div class="variables">
+      ${f.targets.map(t=>`<button class="varCard varChoice" onclick="chooseCompoundPageTarget('${t.key}')">
+        <strong>${t.label}</strong>
+        <div>Hlavní neznámá složené úlohy</div>
+        <div class="chooseHint"><span>Vypočítat</span><span class="arrow">→</span></div>
+      </button>`).join('')}
+    </div>
+    <div class="bottomNav">
+      <button class="btn" onclick="backToCompoundTreeForFamily()">← Zpět na strom</button>
+      <div class="right"></div>
+    </div>`;
+  typeset();
+}
+function chooseCompoundPageTarget(k){
+  compoundTargetKey=k;
+  generateCompoundProblem();
+}
+function backToCompoundTreeForFamily(fromPhonePop=false){
+  const f=getCompoundFamily(compoundFamilyId);
+  if(f){
+    const chapter=curriculumChapterFromCompoundArea(f.area);
+    compoundTreeSelection={type:'subchapter',chapter,subchapter:compoundTreeSubchapterName(f)};
+    compoundExpandedChapters.add(chapter);
+  }
+  homeMode='compound';
+  mode='single';
+  const layout=document.querySelector('#exerciseView .exerciseLayout');
+  if(layout)layout.classList.remove('compoundLayout');
+  const mobileRight=document.querySelector('#exerciseView .mobileBar .right');
+  if(mobileRight)mobileRight.style.visibility='visible';
+  showHome(fromPhonePop);
+}
+
+
+function compoundTreeSubchapterName(f){
+  return f.scope==='cross'?'Napříč kapitolami':(f.homeSubchapter||f.subchapter);
+}
+function compoundSubchapterStateKey(chapter,subchapter){
+  return `${chapter}|||${subchapter}`;
+}
+function setCompoundSubchapterOpen(chapter,subchapter,isOpen){
+  chapter=decodeURIComponent(chapter);
+  subchapter=decodeURIComponent(subchapter);
+  const key=compoundSubchapterStateKey(chapter,subchapter);
+  if(isOpen)compoundExpandedSubchapters.add(key);
+  else compoundExpandedSubchapters.delete(key);
+}
 function compoundAreaFromChapter(ch){
   return ch==='Kmitavý pohyb a mechanické vlnění'?'Kmitání a vlnění':ch;
 }
@@ -13021,30 +13217,51 @@ function compoundTreeHtml(){
   let h='<div class="compoundTree">';
   CURRICULUM_STRUCTURE.forEach((chapter,i)=>{
     const area=compoundAreaFromChapter(chapter.name);
-    const allCount=COMPOUND_FAMILIES.filter(f=>f.area===area&&f.scope!=='cross'&&f.homeSubchapter).length;
-    if(!allCount)return;
-    const childSelected=compoundTreeSelection.type==='subchapter'&&compoundTreeSelection.chapter===chapter.name;
-    const expanded=compoundExpandedChapters.has(chapter.name)||childSelected;
+    const chapterFamilies=COMPOUND_FAMILIES.filter(f=>f.area===area&&(f.homeSubchapter||f.scope==='cross'));
+    if(!chapterFamilies.length)return;
+    const expanded=compoundExpandedChapters.has(chapter.name)||
+      (compoundTreeSelection.chapter===chapter.name);
     h+=`<div class="compoundTreeChapter">
       <div class="compoundTreeChapterHead">
         <button class="compoundTreeSelect compoundTreeExpandOnly ${expanded?'active':''}"
           aria-expanded="${expanded?'true':'false'}"
           onclick="toggleCompoundTreeChapter('${encodeURIComponent(chapter.name)}')">
           <span class="title">${i+1}. ${chapter.name}</span>
-          <span style="display:flex;align-items:center;gap:8px"><span class="compoundTreeCount">${allCount} balíčků</span><span class="chev">›</span></span>
+          <span style="display:flex;align-items:center;gap:8px"><span class="compoundTreeCount">${chapterFamilies.length} skupin</span><span class="chev">›</span></span>
         </button>
       </div>
       <div class="compoundSubList nav ${expanded?'':'hidden'}">`;
+
+    const renderSub=(subName,families,label)=>{
+      if(!families.length)return;
+      const key=compoundSubchapterStateKey(chapter.name,subName);
+      const subOpen=compoundExpandedSubchapters.has(key)||
+        (compoundTreeSelection.chapter===chapter.name&&compoundTreeSelection.subchapter===subName);
+      h+=`<details class="compoundTreeSubchapter" ${subOpen?'open':''}
+        ontoggle="setCompoundSubchapterOpen('${encodeURIComponent(chapter.name)}','${encodeURIComponent(subName)}',this.open)">
+        <summary>
+          <span>${label}</span>
+          <span style="display:flex;align-items:center;gap:7px"><span class="compoundTreeCount">${families.length}</span><span class="chev">›</span></span>
+        </summary>
+        <div class="compoundTreeFamilyList">`;
+      families.forEach(f=>{
+        h+=`<button class="compoundTreeFamily" onclick="openCompoundFamilyPage('${f.id}')">
+          <div class="recipeTitle"><b>${f.name}</b><span class="pill">${f.count} vztahy</span></div>
+          <div class="recipeFormulas">${f.formulas.map((x,k)=>`${k?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div>
+          <div class="mini" style="margin-top:7px">${f.targets.length} možné hlavní neznámé · kliknutím otevřeš vlastní stránku skupiny</div>
+        </button>`;
+      });
+      h+='</div></details>';
+    };
+
     chapter.subtopics.forEach((sub,j)=>{
-      const count=COMPOUND_FAMILIES.filter(f=>f.area===area&&f.scope!=='cross'&&f.homeSubchapter===sub.name).length;
-      const selected=compoundTreeSelection.type==='subchapter'&&compoundTreeSelection.chapter===chapter.name&&compoundTreeSelection.subchapter===sub.name;
-      h+=`<button class="compoundSubRow button ${selected?'active':''}"
-        onclick="selectCompoundTree('subchapter','${encodeURIComponent(chapter.name)}','${encodeURIComponent(sub.name)}')"
-        ${count?'':'disabled'}>
-        <span class="name">${i+1}.${j+1} ${sub.name}</span>
-        <span class="compoundTreeCount">${count}</span>
-      </button>`;
+      const families=chapterFamilies.filter(f=>f.scope!=='cross'&&f.homeSubchapter===sub.name);
+      renderSub(sub.name,families,`${i+1}.${j+1} ${sub.name}`);
     });
+
+    const cross=chapterFamilies.filter(f=>f.scope==='cross');
+    if(cross.length)renderSub('Napříč kapitolami',cross,`${i+1}.X Napříč kapitolami`);
+
     h+='</div></div>';
   });
   return h+'</div>';
@@ -13166,15 +13383,10 @@ function selectCompoundHomeTarget(k){
 }
 function chooseCompoundSearchResult(id){
   const f=getCompoundFamily(id);if(!f||f.scope==='cross'||!f.homeSubchapter)return;
-  const chapter=curriculumChapterFromCompoundArea(f.area);
-  compoundTreeSelection={type:'subchapter',chapter,subchapter:f.homeSubchapter};
-  compoundExpandedChapters.add(chapter);
-  compoundFamilyId=id;compoundTargetKey=null;compoundHomeCount=0;
-  if(compoundIsMobile())compoundHomeScreen='target';
   const inp=document.getElementById('homeSearch');if(inp)inp.value='';
   const res=document.getElementById('searchResults');if(res)res.classList.add('hidden');
   const wrap=document.getElementById('catalogWrap');if(wrap)wrap.classList.remove('hidden');
-  renderHome();
+  openCompoundFamilyPage(id);
 }
 function setHomeMode(m){
   homeMode=m==='compound'?'compound':'single';
@@ -13183,6 +13395,7 @@ function setHomeMode(m){
   compoundHomeCount=0;
   compoundHomeScreen='tree';
   compoundTreeSelection={type:'none',chapter:'',subchapter:''};
+  compoundExpandedSubchapters.clear();
   const inp=document.getElementById('homeSearch');if(inp)inp.value='';
   const res=document.getElementById('searchResults');if(res)res.classList.add('hidden');
   const wrap=document.getElementById('catalogWrap');if(wrap)wrap.classList.remove('hidden');
@@ -13190,7 +13403,6 @@ function setHomeMode(m){
 }
 function renderHome(){
   const single=homeMode==='single';
-  const mobile=compoundIsMobile();
   const tabSingle=document.getElementById('homeTabSingle');
   const tabCompound=document.getElementById('homeTabCompound');
   if(tabSingle){tabSingle.classList.toggle('active',single);tabSingle.setAttribute('aria-selected',single?'true':'false');}
@@ -13205,48 +13417,23 @@ function renderHome(){
   const catalog=document.getElementById('homeCatalog');
   const packages=document.getElementById('compoundHomePackages');
 
+  if(actions)actions.classList.remove('hidden');
+  if(searchWrap)searchWrap.classList.remove('hidden');
+  if(wrap)wrap.classList.remove('compoundHomeActive');
+  if(packages){packages.classList.add('hidden');packages.innerHTML='';}
+  if(title)title.classList.remove('hidden');
+  if(catalog)catalog.classList.remove('hidden');
+
   if(single){
     if(note)note.innerHTML='Vyber konkrétní vztah. U každého můžeš určit kteroukoliv nekonstantní veličinu jako neznámou.';
     if(input)input.placeholder='Hledat vzorec, veličinu nebo název…';
-    if(searchWrap)searchWrap.classList.remove('hidden');
-    if(actions)actions.classList.remove('hidden');
-    if(wrap)wrap.classList.remove('compoundHomeActive');
-    if(title){title.textContent='Obsah';title.classList.remove('hidden');}
-    if(catalog){catalog.className='catalog';catalog.classList.remove('hidden');catalog.innerHTML=catalogHTML(true,false);}
-    if(packages){packages.classList.add('hidden');packages.innerHTML='';}
+    if(title)title.textContent='Obsah';
+    if(catalog){catalog.className='catalog';catalog.innerHTML=catalogHTML(true,false);}
   }else{
-    if(actions)actions.classList.add('hidden');
-    if(wrap)wrap.classList.add('compoundHomeActive');
-    if(input)input.placeholder='Hledat balíček, podkapitolu nebo vztahy…';
-
-    if(!mobile){
-      if(note)note.innerHTML='Kapitoly jsou jen rozbalovací. <b>Rozbal kapitolu a klikni na konkrétní podkapitolu</b>; potom se zobrazí její balíčky.';
-      if(searchWrap)searchWrap.classList.remove('hidden');
-      if(title){title.textContent='Vyber podkapitolu';title.classList.remove('hidden');}
-      if(catalog){catalog.className='';catalog.classList.remove('hidden');catalog.innerHTML=compoundTreeHtml();}
-      if(packages){packages.classList.remove('hidden');packages.innerHTML=compoundHomePackagesHtml();}
-    }else if(compoundHomeScreen==='tree'){
-      if(note)note.innerHTML='Rozbal kapitolu a vyber konkrétní podkapitolu.';
-      if(searchWrap)searchWrap.classList.remove('hidden');
-      if(title){title.textContent='Vyber podkapitolu';title.classList.remove('hidden');}
-      if(catalog){catalog.className='';catalog.classList.remove('hidden');catalog.innerHTML=compoundTreeHtml();}
-      if(packages){packages.classList.add('hidden');packages.innerHTML='';}
-    }else if(compoundHomeScreen==='packages'){
-      const s=compoundTreeSelection;
-      const label=s.type==='chapter'?s.chapter:s.subchapter;
-      if(note)note.innerHTML=`Vyber jeden balíček z oblasti <b>${label}</b>.`;
-      if(searchWrap)searchWrap.classList.add('hidden');
-      if(title)title.classList.add('hidden');
-      if(catalog){catalog.classList.add('hidden');catalog.innerHTML='';}
-      if(packages){packages.classList.remove('hidden');packages.innerHTML=compoundHomePackagesHtml();}
-    }else{
-      const f=getCompoundFamily(compoundFamilyId);
-      if(note)note.innerHTML=f?`Balíček <b>${f.name}</b> – vyber hlavní neznámou.`:'Vyber hlavní neznámou.';
-      if(searchWrap)searchWrap.classList.add('hidden');
-      if(title)title.classList.add('hidden');
-      if(catalog){catalog.classList.add('hidden');catalog.innerHTML='';}
-      if(packages){packages.classList.remove('hidden');packages.innerHTML=compoundTargetPageHtml();}
-    }
+    if(note)note.innerHTML='Rozbal kapitolu a potom podkapitolu. <b>Skupiny vztahů jsou přímo ve stromě</b>; kliknutím na skupinu otevřeš její vlastní stránku.';
+    if(input)input.placeholder='Hledat skupinu vztahů, podkapitolu nebo použitý vztah…';
+    if(title)title.textContent='Skupiny vztahů';
+    if(catalog){catalog.className='';catalog.innerHTML=compoundTreeHtml();}
   }
   typeset();
 }
@@ -13298,6 +13485,7 @@ function openFormula(id){
   currentId=id;
   currentUnknown=null;
   problem=null;
+  currentProblemSeed=null;
   mode='single';
   show('exerciseView');
   if(!alreadyInExercise) armPhoneBack();
@@ -13308,25 +13496,57 @@ function openFormula(id){
 function slug(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_')}
 function renderBuilder(){
   const previouslySelected=new Set(
-    [...document.querySelectorAll('#builderTree [data-formula]:checked')].map(x=>x.dataset.formula)
+    [...document.querySelectorAll('#builderTree [data-practice-item]:checked')]
+      .map(x=>`${x.dataset.kind}:${x.dataset.itemId}`)
   );
   const select=document.getElementById('contentLevelSelect');
-  if(select) select.value=builderContentLevel;
+  if(select)select.value=builderContentLevel;
 
   let h=`<div class="builderTools">
     <button class="btn small" onclick="selectBuilder(true)">Vybrat vše</button>
     <button class="btn small" onclick="selectBuilder(false)">Zrušit výběr</button>
   </div>`;
-  Object.entries(groups(builderContentLevel)).forEach(([ch,subs])=>{
-    const cid='ch_'+slug(ch);
-    const total=Object.values(subs).flat().length;
-    h+=`<div class="check"><input id="${cid}" type="checkbox" onchange="toggleGroup('${cid}');updateBuilderSummary()"><label for="${cid}"><b>${ch}</b></label><span class="count">${total} vztahů</span></div>`;
-    Object.entries(subs).forEach(([sub,fs])=>{
-      const sid='sub_'+slug(sub);
-      h+=`<div class="check s1"><input id="${sid}" class="${cid}" type="checkbox" onchange="toggleGroup('${sid}');syncBuilder();updateBuilderSummary()"><label for="${sid}">${sub}</label><span class="count">${fs.length}</span></div>`;
-      fs.forEach(f=>h+=`<div class="check s2"><input id="f_${f.id}" class="${cid} ${sid}" data-formula="${f.id}" type="checkbox" ${previouslySelected.has(f.id)?'checked':''} onchange="syncBuilder();updateBuilderSummary()"><label for="f_${f.id}">${f.name}</label>${contentLevelPill(f)}</div>`);
+
+  CURRICULUM_STRUCTURE.forEach((chapter,ci)=>{
+    const area=compoundAreaFromChapter(chapter.name);
+    const chapterRows=[];
+    chapter.subtopics.forEach((sub,si)=>{
+      let fs=sub.ids.map(id=>getFormula(id)).filter(Boolean);
+      if(builderContentLevel==='core')fs=fs.filter(f=>f.contentLevel==='core');
+      if(builderContentLevel==='extended')fs=fs.filter(f=>f.contentLevel==='extended');
+      const cs=COMPOUND_FAMILIES.filter(f=>f.area===area&&f.scope!=='cross'&&f.homeSubchapter===sub.name);
+      if(fs.length||cs.length)chapterRows.push({subName:sub.name,fs,cs});
+    });
+
+    const cross=COMPOUND_FAMILIES.filter(f=>f.area===area&&f.scope==='cross');
+    if(cross.length)chapterRows.push({subName:'Napříč kapitolami',fs:[],cs:cross});
+    if(!chapterRows.length)return;
+
+    const cid='bch_'+slug(chapter.name);
+    const total=chapterRows.reduce((n,r)=>n+r.fs.length+r.cs.length,0);
+    h+=`<div class="check"><input id="${cid}" type="checkbox" onchange="toggleGroup('${cid}');updateBuilderSummary()"><label for="${cid}"><b>${chapter.name}</b></label><span class="count">${total} položek</span></div>`;
+
+    chapterRows.forEach(({subName,fs,cs})=>{
+      const sid='bsub_'+slug(chapter.name+'_'+subName);
+      const subTotal=fs.length+cs.length;
+      h+=`<div class="check s1"><input id="${sid}" class="${cid}" type="checkbox" onchange="toggleGroup('${sid}');syncBuilder();updateBuilderSummary()"><label for="${sid}">${subName}</label><span class="count">${subTotal}</span></div>`;
+      fs.forEach(f=>{
+        const key=`single:${f.id}`;
+        h+=`<div class="check s2">
+          <input id="bf_${f.id}" class="${cid} ${sid}" data-practice-item="1" data-kind="single" data-item-id="${f.id}" type="checkbox" ${previouslySelected.has(key)?'checked':''} onchange="syncBuilder();updateBuilderSummary()">
+          <label for="bf_${f.id}">${f.name}<span class="builderKind">1 vztah</span></label>${contentLevelPill(f)}
+        </div>`;
+      });
+      cs.forEach(f=>{
+        const key=`compound:${f.id}`;
+        h+=`<div class="check s2">
+          <input id="bc_${f.id}" class="${cid} ${sid}" data-practice-item="1" data-kind="compound" data-item-id="${f.id}" type="checkbox" ${previouslySelected.has(key)?'checked':''} onchange="syncBuilder();updateBuilderSummary()">
+          <label for="bc_${f.id}">${f.name}<span class="builderKind compound">${f.count} vztahy</span></label>
+        </div>`;
+      });
     });
   });
+
   h+=`<div id="builderSummary" class="builderSummary"></div>`;
   document.getElementById('builderTree').innerHTML=h;
   syncBuilder();
@@ -13342,22 +13562,24 @@ function selectBuilder(state){
   updateBuilderSummary();
 }
 function syncBuilder(){
-  document.querySelectorAll('#builderTree input[id^="sub_"]').forEach(x=>{
-    const c=[...document.querySelectorAll('.'+x.id+'[data-formula]')],n=c.filter(y=>y.checked).length;
+  document.querySelectorAll('#builderTree input[id^="bsub_"]').forEach(x=>{
+    const c=[...document.querySelectorAll('.'+x.id+'[data-practice-item]')],n=c.filter(y=>y.checked).length;
     x.checked=c.length>0&&n===c.length;x.indeterminate=n>0&&n<c.length;
   });
-  document.querySelectorAll('#builderTree input[id^="ch_"]').forEach(x=>{
-    const c=[...document.querySelectorAll('.'+x.id+'[data-formula]')],n=c.filter(y=>y.checked).length;
+  document.querySelectorAll('#builderTree input[id^="bch_"]').forEach(x=>{
+    const c=[...document.querySelectorAll('.'+x.id+'[data-practice-item]')],n=c.filter(y=>y.checked).length;
     x.checked=c.length>0&&n===c.length;x.indeterminate=n>0&&n<c.length;
   });
 }
 function updateBuilderSummary(){
-  const n=[...document.querySelectorAll('[data-formula]:checked')].length;
+  const checked=[...document.querySelectorAll('#builderTree [data-practice-item]:checked')];
+  const singles=checked.filter(x=>x.dataset.kind==='single').length;
+  const compounds=checked.filter(x=>x.dataset.kind==='compound').length;
   const count=parseInt(document.getElementById('testCount')?.value)||10;
   const el=document.getElementById('builderSummary');
   if(el){
     const label=builderContentLevel==='core'?'Jádro':builderContentLevel==='extended'?'Pouze rozšířené':'Jádro + rozšířené';
-    el.innerHTML=`Vybráno <b>${n}</b> vztahů · <b>${count}</b> úloh · ${label}`;
+    el.innerHTML=`Vybráno <b>${checked.length}</b> položek · ${singles}× 1 vztah · ${compounds}× více vztahů · <b>${count}</b> úloh · ${label}`;
   }
 }
 function startPractice(){
@@ -13366,32 +13588,44 @@ function startPractice(){
   practiceDifficulty=1;
   numberDifficulty=1;
 
-  const ids=[...document.querySelectorAll('[data-formula]:checked')]
-    .map(x=>x.dataset.formula)
-    .filter(id=>!!getFormula(id));
+  const selected=[...document.querySelectorAll('#builderTree [data-practice-item]:checked')]
+    .map(x=>({type:x.dataset.kind,id:x.dataset.itemId}))
+    .filter(x=>x.type==='single'?!!getFormula(x.id):!!getCompoundFamily(x.id));
 
-  if(!ids.length){
+  if(!selected.length){
     fb.className='feedback bad';
-    fb.textContent='Vyber alespoň jeden vztah nebo podkapitolu.';
+    fb.textContent='Vyber alespoň jeden vztah nebo jednu složenou skupinu.';
     return;
   }
 
   const n=Math.max(1,Math.min(50,parseInt(document.getElementById('testCount').value)||10));
   queue=[];
+  let attempts=0;
 
-  for(let i=0;i<n;i++){
-    const id=ids[ri(ids.length)];
-    const f=getFormula(id);
-    if(!f || !f.unknowns?.length) continue;
-    const u=f.unknowns[ri(f.unknowns.length)];
-    if(typeof f.generators?.[u] !== 'function') continue;
-    const generated=generateProblem(f,u);
-    queue.push({id,u,problem:generated});
+  while(queue.length<n && attempts<n*12){
+    attempts++;
+    const chosen=selected[ri(selected.length)];
+    const seed=randomProblemSeed();
+
+    if(chosen.type==='single'){
+      const f=getFormula(chosen.id);
+      if(!f?.unknowns?.length)continue;
+      const u=f.unknowns[ri(f.unknowns.length)];
+      if(typeof f.generators?.[u]!=='function')continue;
+      const generated=generateProblemSeeded(f,u,seed);
+      if(generated)queue.push({type:'single',id:f.id,u,seed,problem:generated});
+    }else{
+      const f=getCompoundFamily(chosen.id);
+      if(!f?.targets?.length)continue;
+      const target=f.targets[ri(f.targets.length)].key;
+      const generated=generateCompoundSeeded(f,target,seed);
+      if(generated)queue.push({type:'compound',id:f.id,target,seed,problem:generated});
+    }
   }
 
   if(!queue.length){
     fb.className='feedback bad';
-    fb.textContent='Z vybraných vztahů se nepodařilo vytvořit úlohy.';
+    fb.textContent='Z vybraných položek se nepodařilo vytvořit úlohy.';
     return;
   }
 
@@ -13406,17 +13640,36 @@ function startPractice(){
 function loadQueue(){
   const x=queue[qpos];
   if(!x)return;
+
+  if(x.type==='compound'){
+    const f=getCompoundFamily(x.id);
+    if(!f)return;
+    compoundFamilyId=f.id;
+    compoundTargetKey=x.target;
+    compoundProblemSeed=x.seed>>>0;
+    if(!x.problem)x.problem=generateCompoundSeeded(f,x.target,compoundProblemSeed);
+    compoundProblem=x.problem;
+    currentId=compoundProblem?.sketchId||f.sketchId||'density';
+    currentUnknown=null;
+    problem=null;
+    currentProblemSeed=null;
+    return;
+  }
+
   const f=getFormula(x.id);
-  if(!f || typeof f.generators?.[x.u] !== 'function'){
+  if(!f||typeof f.generators?.[x.u]!=='function'){
     console.error('Neplatná úloha ve frontě',x);
     return;
   }
   currentId=x.id;
   currentUnknown=x.u;
-  if(!x.problem) x.problem=generateProblem(f,currentUnknown);
+  currentProblemSeed=x.seed>>>0;
+  if(!x.problem)x.problem=generateProblemSeeded(f,currentUnknown,currentProblemSeed);
   problem=x.problem;
+  compoundProblem=null;
 }
 function prevContext(){
+  if(mode==='compoundPage'){backToCompoundTreeForFamily();return;}
   if(mode==='compound'){backToCompoundSetup();return;}
   if(mode==='custom'){
     if(qpos>0){qpos--;loadQueue();renderExercise();markSideActive()}
@@ -13429,6 +13682,7 @@ function prevContext(){
   }
 }
 function nextContext(){
+  if(mode==='compoundPage')return;
   if(mode==='compound'){newCompoundProblem();return;}
   if(mode==='custom'){
     if(qpos<queue.length-1){qpos++;loadQueue();renderExercise();markSideActive()}
@@ -13444,17 +13698,20 @@ function chooseUnknown(k){
   practiceDifficulty=1;
   numberDifficulty=1;
   currentUnknown=k;
+  currentProblemSeed=randomProblemSeed();
   const f=getFormula(currentId);
-  problem=generateProblem(f,k);
+  problem=generateProblemSeeded(f,k,currentProblemSeed);
   renderExercise();
 }
 function backToFormula(){
   currentUnknown=null;
   problem=null;
+  currentProblemSeed=null;
   renderExercise();
 }
 function smartBack(){
   if(mode==='compound'){backToCompoundSetup();return;}
+  if(mode==='compoundPage'){backToCompoundTreeForFamily();return;}
   if(mode==='single' && currentUnknown && problem) backToFormula();
   else showHome();
 }
@@ -13475,6 +13732,9 @@ window.addEventListener('popstate',()=>{
     history.pushState({fyzikaInternal:true},'',location.href);
     phoneBackArmed=true;
     backToCompoundSetup();
+  }else if(mode==='compoundPage'){
+    phoneBackArmed=false;
+    backToCompoundTreeForFamily(true);
   }else if(mode==='single' && currentUnknown && problem){
     history.pushState({fyzikaInternal:true},'',location.href);
     phoneBackArmed=true;
@@ -13489,7 +13749,8 @@ function newProblem(){
   practiceDifficulty=1;
   numberDifficulty=1;
   const f=getFormula(currentId);
-  problem=generateProblem(f,currentUnknown);
+  currentProblemSeed=randomProblemSeed();
+  problem=generateProblemSeeded(f,currentUnknown,currentProblemSeed);
   renderExercise();
 }
 
@@ -13802,76 +14063,121 @@ function formulaSketchHtml(f,compact=false){
 
 function renderExercise(){
   if(mode==='compound'){renderCompoundExercise();return;}
-  const layout=document.querySelector('#exerciseView .exerciseLayout');if(layout)layout.classList.remove('compoundLayout');
+  if(mode==='compoundPage'){renderCompoundFamilyPage();return;}
+
+  const mobileRight=document.querySelector('#exerciseView .mobileBar .right');
+  if(mobileRight)mobileRight.style.visibility='visible';
+
+  if(mode==='custom'){
+    const item=queue[qpos];
+    if(!item)return;
+    const banner=document.getElementById('testBanner');
+    banner.classList.remove('hidden');
+    banner.innerHTML=`
+      <div><b>Vlastní procvičování</b><span>Úloha ${qpos+1} z ${queue.length}</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn small" onclick="sharePractice()">🔗 Sdílet procvičování</button>
+        <button class="btn small" onclick="copyPracticeSet('tasks')">📋 Všechna zadání</button>
+        <button class="btn small" onclick="copyPracticeSet('solutions')">📋 Zadání + řešení</button>
+        <button class="btn small" onclick="showHome()">Ukončit</button>
+      </div>`;
+
+    if(item.type==='compound'){
+      const f=getCompoundFamily(item.id),p=item.problem;
+      const layout=document.querySelector('#exerciseView .exerciseLayout');
+      if(layout)layout.classList.add('compoundLayout');
+      document.getElementById('exerciseMain').innerHTML=`
+        <div class="breadcrumb">${f.area} › ${f.homeSubchapter||f.subchapter} › Více vztahů</div>
+        <div class="titleRow"><h2>${f.name}</h2><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${compoundScopePill(f)}<span class="pill">${f.count} vztahy</span></div></div>
+        <div class="compoundRelationList">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div>
+        <div class="problem" id="problemBox">
+          <div class="problemLabel">Zadání</div><p>${p.text}</p>
+          ${p.sketchId?formulaSketchHtml(getFormula(p.sketchId),true):(f.sketchId?formulaSketchHtml(getFormula(f.sketchId),true):'')}
+          <div class="problemActions"><button class="btn" onclick="shareCurrentExample()">🔗 Sdílet tento příklad</button></div>
+          <div class="copyActions">
+            <button class="btn small" onclick="copyPracticeSet('tasks')">📋 Kopírovat všechna zadání</button>
+            <button class="btn small" onclick="copyPracticeSet('solutions')">📋 Kopírovat všechna zadání + řešení</button>
+          </div>
+        </div>
+        ${compoundSolutionHtml()}
+        <div class="bottomNav">
+          <button class="btn" onclick="showHome()">← Zpět na obsah</button>
+          <div class="right">
+            <button class="btn" onclick="prevContext()" ${qpos===0?'disabled':''}>← Předchozí</button>
+            <button class="btn" onclick="nextContext()" ${qpos===queue.length-1?'disabled':''}>Další →</button>
+          </div>
+        </div>`;
+    }else{
+      const f=getFormula(item.id);
+      const layout=document.querySelector('#exerciseView .exerciseLayout');
+      if(layout)layout.classList.remove('compoundLayout');
+      document.getElementById('exerciseMain').innerHTML=`
+        ${problem?renderProblem(f,true):''}
+        <div class="bottomNav">
+          <button class="btn" onclick="showHome()">← Zpět na obsah</button>
+          <div class="right">
+            <button class="btn" onclick="prevContext()" ${qpos===0?'disabled':''}>← Předchozí</button>
+            <button class="btn" onclick="nextContext()" ${qpos===queue.length-1?'disabled':''}>Další →</button>
+          </div>
+        </div>`;
+    }
+    typeset();
+    return;
+  }
+
+  const layout=document.querySelector('#exerciseView .exerciseLayout');
+  if(layout)layout.classList.remove('compoundLayout');
   const f=getFormula(currentId);
   if(!f){
     document.getElementById('exerciseMain').innerHTML='<div class="feedback bad">Tento vztah se nepodařilo načíst.</div>';
     return;
   }
   const banner=document.getElementById('testBanner');
-  banner.classList.toggle('hidden',mode!=='custom');
+  banner.classList.add('hidden');
 
-  if(mode==='custom'){
-    banner.innerHTML=`
-      <div><b>Vlastní procvičování</b><span>Úloha ${qpos+1} z ${queue.length}</span></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-        <button class="btn small" onclick="copyPracticeSet('tasks')">📋 Všechna zadání</button>
-        <button class="btn small" onclick="copyPracticeSet('solutions')">📋 Zadání + řešení</button>
-        <button class="btn small" onclick="showHome()">Ukončit</button>
-      </div>`;
+  if(currentUnknown && problem){
     document.getElementById('exerciseMain').innerHTML=`
-      ${problem?renderProblem(f,true):''}
+      <div class="problemFocusTop">
+        <button class="btn" onclick="backToFormula()">← Zpět ke vzorci</button>
+      </div>
+      ${renderProblem(f,false)}
       <div class="bottomNav">
-        <button class="btn" onclick="showHome()">← Zpět na obsah</button>
-        <div class="right">
-          <button class="btn" onclick="prevContext()" ${qpos===0?'disabled':''}>← Předchozí</button>
-          <button class="btn" onclick="nextContext()" ${qpos===queue.length-1?'disabled':''}>Další →</button>
-        </div>
+        <button class="btn" onclick="backToFormula()">← Zpět ke vzorci</button>
+        <div class="right"></div>
       </div>`;
   }else{
-    if(currentUnknown && problem){
-      document.getElementById('exerciseMain').innerHTML=`
-        <div class="problemFocusTop">
-          <button class="btn" onclick="backToFormula()">← Zpět ke vzorci</button>
-        </div>
-        ${renderProblem(f,false)}
-        <div class="bottomNav">
-          <button class="btn" onclick="backToFormula()">← Zpět ke vzorci</button>
-          <div class="right"></div>
-        </div>`;
-    }else{
-      document.getElementById('exerciseMain').innerHTML=`
-        <div class="breadcrumb">${f.topic} › ${f.subtopic}</div>
-        <div class="titleRow"><h2>${f.name}</h2>${contentLevelPill(f)}</div>
-        <div class="formulaBox">${md(f.tex)}</div>
-        ${formulaSketchHtml(f,false)}
-        <div class="sectionTitle" style="margin:14px 0 9px">Veličiny – klikni na tu, kterou chceš vypočítat</div>
-        <div class="variables">
-          ${f.vars.map(v=>{
-            const selectable=f.unknowns.includes(v.k);
-            if(selectable){
-              return `<button class="varCard varChoice" onclick="chooseUnknown('${v.k}')" aria-label="Vypočítat ${cap(v.name)}">
-                <strong>${mi(v.s)}</strong>
-                <div>${cap(v.name)} · ${niceUnit(v.unit)}</div>
-                <div class="chooseHint"><span>Vypočítat</span><span class="arrow">→</span></div>
-              </button>`;
-            }
-            return `<div class="varCard"><strong>${mi(v.s)}</strong><div>${cap(v.name)} · ${niceUnit(v.unit)}</div></div>`;
-          }).join('')}
-          ${(f.constants||[]).map(c=>`<div class="varCard constantCard"><strong>${mi(c.s)}</strong><div>${cap(c.name)} · ${niceUnit(c.unit)}</div><div class="constantValue">${mi(constantTex(c))}</div></div>`).join('')}
-        </div>
-        ${(f.constants||[]).length?`<div class="smallNote">Konstanty jsou uvedené pro přehled a nelze je zvolit jako neznámou.</div>`:''}
-        <div class="bottomNav">
-          <button class="btn" onclick="showHome()">← Zpět na obsah</button>
-          <div class="right"><button class="btn" onclick="prevContext()">← Předchozí</button><button class="btn" onclick="nextContext()">Další →</button></div>
-        </div>`;
-    }
+    document.getElementById('exerciseMain').innerHTML=`
+      <div class="breadcrumb">${f.topic} › ${f.subtopic}</div>
+      <div class="titleRow"><h2>${f.name}</h2>${contentLevelPill(f)}</div>
+      <div class="formulaBox">${md(f.tex)}</div>
+      ${formulaSketchHtml(f,false)}
+      <div class="sectionTitle" style="margin:14px 0 9px">Veličiny – klikni na tu, kterou chceš vypočítat</div>
+      <div class="variables">
+        ${f.vars.map(v=>{
+          const selectable=f.unknowns.includes(v.k);
+          if(selectable){
+            return `<button class="varCard varChoice" onclick="chooseUnknown('${v.k}')" aria-label="Vypočítat ${cap(v.name)}">
+              <strong>${mi(v.s)}</strong>
+              <div>${cap(v.name)} · ${niceUnit(v.unit)}</div>
+              <div class="chooseHint"><span>Vypočítat</span><span class="arrow">→</span></div>
+            </button>`;
+          }
+          return `<div class="varCard"><strong>${mi(v.s)}</strong><div>${cap(v.name)} · ${niceUnit(v.unit)}</div></div>`;
+        }).join('')}
+        ${(f.constants||[]).map(c=>`<div class="varCard constantCard"><strong>${mi(c.s)}</strong><div>${cap(c.name)} · ${niceUnit(c.unit)}</div><div class="constantValue">${mi(constantTex(c))}</div></div>`).join('')}
+      </div>
+      ${(f.constants||[]).length?`<div class="smallNote">Konstanty jsou uvedené pro přehled a nelze je zvolit jako neznámou.</div>`:''}
+      <div class="bottomNav">
+        <button class="btn" onclick="showHome()">← Zpět na obsah</button>
+        <div class="right"><button class="btn" onclick="prevContext()">← Předchozí</button><button class="btn" onclick="nextContext()">Další →</button></div>
+      </div>`;
   }
   typeset();
 }
 function renderProblem(f,isPractice=false){
   return `<div class="problem" id="problemBox"><div class="problemLabel">Zadání</div><p>${problem.text}</p>${formulaSketchHtml(f,true)}<div class="problemActions">
     ${isPractice?'':`<button class="btn primary" onclick="newProblem()">↻ Nový příklad</button>`}
+    <button class="btn" onclick="shareCurrentExample()">🔗 Sdílet příklad</button>
   </div>
   <div class="copyActions">
     ${isPractice
@@ -13953,6 +14259,166 @@ function showCopyToast(msg){
   clearTimeout(showCopyToast._t);
   showCopyToast._t=setTimeout(()=>el.classList.remove('show'),1800);
 }
+
+function bytesToBase64Url(bytes){
+  let bin='';
+  const step=0x8000;
+  for(let i=0;i<bytes.length;i+=step){
+    bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+step,bytes.length)));
+  }
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function base64UrlToBytes(s){
+  s=s.replace(/-/g,'+').replace(/_/g,'/');
+  while(s.length%4)s+='=';
+  const bin=atob(s),out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);
+  return out;
+}
+async function streamBytes(readable){
+  const ab=await new Response(readable).arrayBuffer();
+  return new Uint8Array(ab);
+}
+async function encodeSharePayload(payload){
+  const raw=new TextEncoder().encode(JSON.stringify(payload));
+  if(window.CompressionStream&&window.DecompressionStream){
+    try{
+      const cs=new CompressionStream('gzip');
+      const writer=cs.writable.getWriter();
+      writer.write(raw);writer.close();
+      const zipped=await streamBytes(cs.readable);
+      return 'z1.'+bytesToBase64Url(zipped);
+    }catch(e){}
+  }
+  return 'j1.'+bytesToBase64Url(raw);
+}
+async function decodeSharePayload(token){
+  const dot=token.indexOf('.');
+  if(dot<0)throw new Error('Neplatný formát odkazu');
+  const kind=token.slice(0,dot),bytes=base64UrlToBytes(token.slice(dot+1));
+  let raw=bytes;
+  if(kind==='z1'){
+    if(!window.DecompressionStream)throw new Error('Prohlížeč neumí rozbalit odkaz');
+    const ds=new DecompressionStream('gzip');
+    const writer=ds.writable.getWriter();
+    writer.write(bytes);writer.close();
+    raw=await streamBytes(ds.readable);
+  }else if(kind!=='j1'){
+    throw new Error('Neznámá verze odkazu');
+  }
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+async function copyPlainText(text){
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(e){}
+  const ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.left='-10000px';
+  document.body.appendChild(ta);ta.select();
+  let ok=false;try{ok=document.execCommand('copy')}catch(e){}
+  ta.remove();return ok;
+}
+async function copySharePayload(payload,label){
+  try{
+    const token=await encodeSharePayload(payload);
+    const base=location.href.split('#')[0];
+    const url=`${base}#s=${token}`;
+    const ok=await copyPlainText(url);
+    showCopyToast(ok?`${label} – odkaz je ve schránce.`:'Odkaz se nepodařilo zkopírovat.');
+    return url;
+  }catch(e){
+    console.error(e);
+    showCopyToast('Sdílený odkaz se nepodařilo vytvořit.');
+    return null;
+  }
+}
+function currentPracticeShareItem(item){
+  if(item.type==='compound')return ['c',item.id,item.target,item.seed>>>0];
+  return ['s',item.id,item.u,item.seed>>>0];
+}
+async function shareCurrentExample(){
+  let payload=null;
+  if(mode==='custom'){
+    const item=queue[qpos];
+    if(item)payload=[1,'e',...currentPracticeShareItem(item)];
+  }else if(mode==='compound'&&compoundFamilyId&&compoundTargetKey&&compoundProblem){
+    payload=[1,'e','c',compoundFamilyId,compoundTargetKey,compoundProblemSeed>>>0];
+  }else if(mode==='single'&&currentUnknown&&problem){
+    payload=[1,'e','s',currentId,currentUnknown,currentProblemSeed>>>0];
+  }
+  if(!payload){showCopyToast('Nejdřív vygeneruj příklad.');return}
+  await copySharePayload(payload,'Příklad sdílen');
+}
+async function sharePractice(){
+  if(mode!=='custom'||!queue.length){showCopyToast('Není co sdílet.');return}
+  const items=queue.map(currentPracticeShareItem);
+  await copySharePayload([1,'p',items],'Procvičování sdíleno');
+}
+async function loadSharedStateFromHash(){
+  const m=location.hash.match(/^#s=([^&]+)/);
+  if(!m)return false;
+  try{
+    const payload=await decodeSharePayload(m[1]);
+    if(!Array.isArray(payload)||payload[0]!==1)throw new Error('Nepodporovaná verze');
+
+    practiceDifficulty=1;
+    numberDifficulty=1;
+
+    if(payload[1]==='e'){
+      const kind=payload[2],id=payload[3],key=payload[4],seed=Number(payload[5])>>>0;
+      if(kind==='s'){
+        const f=getFormula(id);
+        if(!f||!f.unknowns.includes(key))throw new Error('Vztah v odkazu už není dostupný');
+        homeMode='single';mode='single';currentId=id;currentUnknown=key;currentProblemSeed=seed;
+        problem=generateProblemSeeded(f,key,seed);
+        show('exerciseView');armPhoneBack();renderSide();renderExercise();
+      }else if(kind==='c'){
+        const f=getCompoundFamily(id);
+        if(!f||!f.targets.some(t=>t.key===key))throw new Error('Skupina v odkazu už není dostupná');
+        homeMode='compound';compoundFamilyId=id;compoundTargetKey=key;compoundProblemSeed=seed;
+        compoundProblem=generateCompoundSeeded(f,key,seed);
+        currentId=compoundProblem.sketchId||f.sketchId||'density';
+        mode='compound';show('exerciseView');armPhoneBack();renderCompoundExercise();
+      }else throw new Error('Neznámý typ příkladu');
+      showCopyToast('Sdílený příklad načten.');
+      return true;
+    }
+
+    if(payload[1]==='p'){
+      const items=Array.isArray(payload[2])?payload[2]:[];
+      queue=[];
+      for(const row of items){
+        if(!Array.isArray(row)||row.length<4)continue;
+        const kind=row[0],id=row[1],key=row[2],seed=Number(row[3])>>>0;
+        if(kind==='s'){
+          const f=getFormula(id);
+          if(!f||!f.unknowns.includes(key))continue;
+          const p=generateProblemSeeded(f,key,seed);
+          if(p)queue.push({type:'single',id,u:key,seed,problem:p});
+        }else if(kind==='c'){
+          const f=getCompoundFamily(id);
+          if(!f||!f.targets.some(t=>t.key===key))continue;
+          const p=generateCompoundSeeded(f,key,seed);
+          if(p)queue.push({type:'compound',id,target:key,seed,problem:p});
+        }
+      }
+      if(!queue.length)throw new Error('Procvičování neobsahuje dostupné úlohy');
+      qpos=0;mode='custom';loadQueue();show('exerciseView');armPhoneBack();renderSide();renderExercise();
+      showCopyToast('Sdílené procvičování načteno.');
+      return true;
+    }
+
+    throw new Error('Neznámý typ sdíleného odkazu');
+  }catch(e){
+    console.error(e);
+    showCopyToast('Sdílený odkaz se nepodařilo načíst.');
+    return false;
+  }
+}
+
 function stripCopyControls(root){
   root.querySelectorAll('button,summary,.problemActions,.copyActions').forEach(x=>x.remove());
 }
@@ -14052,27 +14518,38 @@ async function copyToWord(kind){
     ? (kind==='task'?'Zadání zkopírováno pro Word.':'Zadání i řešení zkopírováno pro Word.')
     : 'Kopírování se nepodařilo.');
 }
+function practiceTaskHtml(item,number){
+  if(item.type==='compound'){
+    const f=getCompoundFamily(item.id);
+    return `<h3>Příklad ${number} – ${f.name}</h3><p>${item.problem.text}</p>`;
+  }
+  const f=getFormula(item.id);
+  return taskHtml(f,item.problem,number);
+}
+function practiceCombinedHtml(item,number){
+  if(item.type==='compound'){
+    const f=getCompoundFamily(item.id),p=item.problem;
+    return `<h3>Příklad ${number} – ${f.name}</h3><p>${p.text}</p>
+      <h4>Řešení příkladu ${number}</h4>
+      <p><b>Použité vztahy:</b></p>
+      ${f.formulas.map(x=>`<div>${md(x)}</div>`).join('')}
+      ${compoundSeqHtml(p)}${compoundSymbolicHtml(p)}
+      <p><b>Odpověď:</b> ${p.answer}</p>`;
+  }
+  const f=getFormula(item.id);
+  return combinedItemHtml(f,item.u,item.problem,number);
+}
 async function copyPracticeSet(kind){
-  if(mode!=='custom' || !queue.length)return;
+  if(mode!=='custom'||!queue.length)return;
 
   const temp=makeCopyContainer();
-  let html='';
+  let html=kind==='tasks'?'<h2>Fyzika – zadání</h2>':'<h2>Fyzika – zadání a řešení</h2>';
 
-  if(kind==='tasks'){
-    html='<h2>Fyzika – zadání</h2>';
-    queue.forEach((item,i)=>{
-      const f=getFormula(item.id),p=item.problem;
-      if(!f||!p)return;
-      html+=`<div style="margin-bottom:20px">${taskHtml(f,p,i+1)}</div>`;
-    });
-  }else{
-    html='<h2>Fyzika – zadání a řešení</h2>';
-    queue.forEach((item,i)=>{
-      const f=getFormula(item.id),p=item.problem;
-      if(!f||!p)return;
-      html+=`<div style="margin-bottom:30px">${combinedItemHtml(f,item.u,p,i+1)}</div>`;
-    });
-  }
+  queue.forEach((item,i)=>{
+    html+=`<div style="margin-bottom:${kind==='tasks'?20:30}px">${
+      kind==='tasks'?practiceTaskHtml(item,i+1):practiceCombinedHtml(item,i+1)
+    }</div>`;
+  });
 
   temp.innerHTML=html;
   document.body.appendChild(temp);
@@ -14106,6 +14583,7 @@ document.getElementById('homeSearch').addEventListener('input',e=>{
   typeset();
 });
 renderHome();
+loadSharedStateFromHash();
 </script>
 <!--
 V56 schválený další plán podle uživatele:
