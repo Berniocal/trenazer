@@ -661,6 +661,85 @@ mjx-container[jax="SVG"][display="true"]{max-width:100%;overflow-x:auto;overflow
   .variables{grid-template-columns:1fr}
   .constantCard{grid-column:auto}
 }
+
+/* V75 – třetí úroveň členění: podpodkapitoly */
+.subsubchapter{
+  margin:5px 5px 7px 16px;
+  border-left:2px solid #e4eaf5;
+  border-radius:10px;
+  background:#fbfcff;
+  overflow:hidden
+}
+.subsubchapter>summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:8px 10px;
+  font-size:13px;
+  font-weight:780;
+  color:#536178
+}
+.subsubchapter>summary::-webkit-details-marker{display:none}
+.subsubchapter[open]>summary{background:#f1f5fd;color:#2d466d}
+.subsubchapter .formulaLinks{padding:3px 7px 8px 15px}
+
+.compoundTreeSubsubchapter{
+  margin:5px 7px 7px 16px;
+  border-left:2px solid #dbe4f3;
+  border-radius:10px;
+  background:#f8faff;
+  overflow:hidden
+}
+.compoundTreeSubsubchapter>summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:9px 10px;
+  font-size:13px;
+  font-weight:800;
+  color:#52627a
+}
+.compoundTreeSubsubchapter>summary::-webkit-details-marker{display:none}
+.compoundTreeSubsubchapter[open]>summary{background:#eef3fc;color:#294f88}
+.compoundTreeSubsubchapter .compoundTreeFamilyList{padding:5px 7px 9px 13px}
+
+.builderSubsubchapter{
+  margin:5px 0 7px 14px;
+  border:1px solid #edf1f7;
+  border-left:2px solid #dfe7f4;
+  border-radius:9px;
+  background:#fbfcff;
+  overflow:hidden
+}
+.builderSubsubchapter>summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:40px;
+  padding:7px 9px;
+  font-size:13px;
+  color:#536178
+}
+.builderSubsubchapter>summary::-webkit-details-marker{display:none}
+.builderSubsubchapter>summary:hover{background:#f5f8fd}
+.builderSubsubchapterBody{padding:2px 5px 6px}
+.builderSubsubchapter .builderChevron{margin-left:auto;color:#8190a5;transition:transform .15s ease}
+.builderSubsubchapter[open]>summary .builderChevron{transform:rotate(90deg)}
+.builderSubsubchapter.hiddenBySelection{display:none}
+@media(max-width:850px){
+  .subsubchapter{margin-left:10px}
+  .compoundTreeSubsubchapter{margin-left:10px}
+  .builderSubsubchapter{margin-left:8px}
+}
+
 </style></head><body>
 <div class="app">
   <header id="brand" class="brand"><h1>Fyzikální vztahy</h1><p>Procvičuj jeden vztah, nebo propojuj více vztahů v jedné úloze.</p></header>
@@ -16486,7 +16565,7 @@ function compoundTargetVariantCount(){return COMPOUND_FAMILIES.reduce((n,f)=>n+f
 function compoundFamiliesFiltered(){
   let xs=COMPOUND_FAMILIES.filter(f=>f.area===compoundArea&&f.count===compoundFormulaCount&&f.scope===compoundScope);
   const q=compoundSearch.trim().toLowerCase();
-  if(q)xs=xs.filter(f=>(f.name+' '+f.keywords+' '+f.subchapter+' '+f.formulas.join(' ')).toLowerCase().includes(q));
+  if(q)xs=xs.filter(f=>(f.name+' '+f.keywords+' '+f.subchapter+' '+compoundFamilySubsubchapter(f)+' '+f.formulas.join(' ')).toLowerCase().includes(q));
   return xs;
 }
 function compoundCountAvailable(area,count,scope=compoundScope){return COMPOUND_FAMILIES.filter(f=>f.area===area&&f.count===count&&f.scope===scope).length}
@@ -16629,7 +16708,7 @@ function renderCompoundExercise(){
   const f=getCompoundFamily(compoundFamilyId),p=compoundProblem;if(!f||!p)return;
   const layout=document.querySelector('#exerciseView .exerciseLayout');if(layout)layout.classList.add('compoundLayout');
   const banner=document.getElementById('testBanner');banner.classList.remove('hidden');banner.innerHTML=`<div><b>Složená úloha</b><span>${f.area} · ${COMPOUND_SCOPE_META[f.scope].short} · ${f.count} vztahy</span></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" onclick="showHome()">Ukončit</button></div>`;
-  document.getElementById('exerciseMain').innerHTML=`<div class="problemFocusTop"><button class="btn" onclick="backToCompoundSetup()">← Zpět ke skupině</button></div><div class="breadcrumb">${f.area} › ${f.homeSubchapter||f.subchapter} › Složené úlohy</div><div class="titleRow"><h2>${f.name}</h2><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${compoundScopePill(f)}<span class="pill">${f.count} vztahy</span></div></div><div class="compoundRelationList">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div><div class="problem" id="problemBox"><div class="problemLabel">Zadání</div><p>${p.text}</p>${p.sketchId?formulaSketchHtml(getFormula(p.sketchId),true):(f.sketchId?formulaSketchHtml(getFormula(f.sketchId),true):'')}<div class="problemActions"><button class="btn primary" onclick="newCompoundProblem()">↻ Nový příklad</button><button class="btn" onclick="shareCurrentExample()">🔗 Sdílet příklad</button></div><div class="copyActions"><button class="btn small" onclick="copyCompoundToWord('task')">📋 Kopírovat zadání</button><button class="btn small" onclick="copyCompoundToWord('solution')">📋 Zadání + řešení</button></div></div>${compoundSolutionHtml()}<div class="bottomNav"><button class="btn" onclick="backToCompoundSetup()">← Zpět k balíčkům</button><div class="right"><button class="btn primary" onclick="newCompoundProblem()">Nový příklad</button></div></div>`;
+  document.getElementById('exerciseMain').innerHTML=`<div class="problemFocusTop"><button class="btn" onclick="backToCompoundSetup()">← Zpět ke skupině</button></div><div class="breadcrumb">${compoundBreadcrumb(f)} › Složené úlohy</div><div class="titleRow"><h2>${f.name}</h2><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${compoundScopePill(f)}<span class="pill">${f.count} vztahy</span></div></div><div class="compoundRelationList">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div><div class="problem" id="problemBox"><div class="problemLabel">Zadání</div><p>${p.text}</p>${p.sketchId?formulaSketchHtml(getFormula(p.sketchId),true):(f.sketchId?formulaSketchHtml(getFormula(f.sketchId),true):'')}<div class="problemActions"><button class="btn primary" onclick="newCompoundProblem()">↻ Nový příklad</button><button class="btn" onclick="shareCurrentExample()">🔗 Sdílet příklad</button></div><div class="copyActions"><button class="btn small" onclick="copyCompoundToWord('task')">📋 Kopírovat zadání</button><button class="btn small" onclick="copyCompoundToWord('solution')">📋 Zadání + řešení</button></div></div>${compoundSolutionHtml()}<div class="bottomNav"><button class="btn" onclick="backToCompoundSetup()">← Zpět k balíčkům</button><div class="right"><button class="btn primary" onclick="newCompoundProblem()">Nový příklad</button></div></div>`;
   typeset();
 }
 function compoundCopyHtml(kind){
@@ -16654,6 +16733,7 @@ function openCompoundFamilyPage(id,fromBack=false){
   const chapter=curriculumChapterFromCompoundArea(f.area);
   compoundTreeSelection={type:'subchapter',chapter,subchapter:compoundTreeSubchapterName(f)};
   compoundExpandedChapters.add(chapter);
+  ensureCompoundSubsubOpenForFamily(f);
   compoundFamilyId=id;
   compoundTargetKey=null;
   compoundRequestedSymbols=[];
@@ -16680,7 +16760,7 @@ function renderCompoundFamilyPage(){
     <div class="problemFocusTop">
       <button class="btn" onclick="backToCompoundTreeForFamily()">← Zpět na strom</button>
     </div>
-    <div class="breadcrumb">${f.area} › ${f.homeSubchapter||f.subchapter} › Více vztahů</div>
+    <div class="breadcrumb">${compoundBreadcrumb(f)} › Více vztahů</div>
     <div class="titleRow">
       <h2>${f.name}</h2>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${compoundScopePill(f)}<span class="pill">${f.count} vztahy</span></div>
@@ -16735,6 +16815,7 @@ function backToCompoundTreeForFamily(fromPhonePop=false){
     const chapter=curriculumChapterFromCompoundArea(f.area);
     compoundTreeSelection={type:'subchapter',chapter,subchapter:compoundTreeSubchapterName(f)};
     compoundExpandedChapters.add(chapter);
+    ensureCompoundSubsubOpenForFamily(f);
   }
   homeMode='compound';
   mode='single';
@@ -16979,6 +17060,7 @@ function setHomeMode(m){
   compoundHomeScreen='tree';
   compoundTreeSelection={type:'none',chapter:'',subchapter:''};
   compoundExpandedSubchapters.clear();
+  compoundExpandedSubsubchapters.clear();
   const inp=document.getElementById('homeSearch');if(inp)inp.value='';
   const res=document.getElementById('searchResults');if(res)res.classList.add('hidden');
   const wrap=document.getElementById('catalogWrap');if(wrap)wrap.classList.remove('hidden');
@@ -17013,7 +17095,7 @@ function renderHome(){
     if(title)title.textContent='Obsah';
     if(catalog){catalog.className='catalog';catalog.innerHTML=catalogHTML(true,false);}
   }else{
-    if(note)note.innerHTML='Rozbal kapitolu a potom podkapitolu. <b>Skupiny vztahů jsou přímo ve stromě</b>; kliknutím na skupinu otevřeš její vlastní stránku.';
+    if(note)note.innerHTML='Rozbal kapitolu, podkapitolu a tam, kde je to užitečné, i menší tematickou část. <b>Skupiny vztahů jsou přímo ve stromě</b>; kliknutím na skupinu otevřeš její vlastní stránku.';
     if(input)input.placeholder='Hledat skupinu vztahů, podkapitolu nebo použitý vztah…';
     if(title)title.textContent='Skupiny vztahů';
     if(catalog){catalog.className='';catalog.innerHTML=compoundTreeHtml();}
@@ -17021,7 +17103,13 @@ function renderHome(){
   typeset();
 }
 
-function renderSide(){const q=(document.getElementById('sideSearch')?.value||'').toLowerCase().trim(),el=document.getElementById('sideCatalog');if(!q){el.innerHTML=catalogHTML(false,true);typeset();return}const hits=formulas.filter(f=>(f.name+' '+f.topic+' '+f.subtopic+' '+f.keywords).toLowerCase().includes(q));el.innerHTML=hits.map(f=>`<button class="formulaLink ${f.id===currentId?'active':''}" data-formula-id="${f.id}" onclick="openFormula('${f.id}')"><div class="formulaTop"><span class="formulaName">${f.name}</span>${contentLevelPill(f)}</div><div class="mini">${mi(f.tex)}</div></button>`).join('')||'<div class="future">Nic nenalezeno.</div>';typeset()}
+function renderSide(){
+  const q=(document.getElementById('sideSearch')?.value||'').toLowerCase().trim(),el=document.getElementById('sideCatalog');
+  if(!q){el.innerHTML=catalogHTML(false,true);typeset();return}
+  const hits=formulas.filter(f=>(f.name+' '+f.topic+' '+f.subtopic+' '+formulaSubsubchapter(f)+' '+f.keywords).toLowerCase().includes(q));
+  el.innerHTML=hits.map(f=>`<button class="formulaLink ${f.id===currentId?'active':''}" data-formula-id="${f.id}" onclick="openFormula('${f.id}')"><div class="formulaTop"><span class="formulaName">${f.name}</span>${contentLevelPill(f)}</div><div class="mini">${formulaBreadcrumb(f)} · ${mi(f.tex)}</div></button>`).join('')||'<div class="future">Nic nenalezeno.</div>';
+  typeset();
+}
 function markSideActive(){
   document.querySelectorAll('#sideCatalog .formulaLink').forEach(b=>{
     b.classList.toggle('active',b.dataset.formulaId===currentId);
@@ -17790,7 +17878,7 @@ function renderExercise(){
       const layout=document.querySelector('#exerciseView .exerciseLayout');
       if(layout)layout.classList.add('compoundLayout');
       document.getElementById('exerciseMain').innerHTML=`
-        <div class="breadcrumb">${f.area} › ${f.homeSubchapter||f.subchapter} › Více vztahů</div>
+        <div class="breadcrumb">${compoundBreadcrumb(f)} › Více vztahů</div>
         <div class="titleRow"><h2>${f.name}</h2><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${compoundScopePill(f)}<span class="pill">${f.count} vztahy</span></div></div>
         <div class="compoundRelationList">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div>
         <div class="problem" id="problemBox">
@@ -17850,7 +17938,7 @@ function renderExercise(){
       </div>`;
   }else{
     document.getElementById('exerciseMain').innerHTML=`
-      <div class="breadcrumb">${f.topic} › ${f.subtopic}</div>
+      <div class="breadcrumb">${formulaBreadcrumb(f)}</div>
       <div class="titleRow"><h2>${f.name}</h2>${contentLevelPill(f)}</div>
       <div class="formulaBox">${md(f.tex)}</div>
       ${formulaSketchHtml(f,false)}
@@ -18433,6 +18521,227 @@ async function copyPracticeSet(kind){
         : `Zkopírováno ${queue.length} zadání včetně řešení pro Word.`)
     : 'Kopírování se nepodařilo.');
 }
+const SUBSUBCHAPTERS_V75={"Mechanika|Kinematika":[{"name":"Rychlost a průměrná rychlost","formulaIds":["speed","average_speed"],"compoundIds":["average_speed_two_sections_v59","average_speed_return_trip_v69","average_speed_with_stop_v69","average_speed_three_sections_v69","vector_velocity_distance_v68"]},{"name":"Pohybové úlohy","formulaIds":[],"compoundIds":["motion_toward_each_other_v59","motion_catch_up_v59","overtaking_long_vehicle_v59"]},{"name":"Zrychlený a brzdný pohyb","formulaIds":["acceleration","accelerated_velocity","accelerated_distance","accelerated_distance_general"],"compoundIds":["kin_accel_distance_from_speed","kin_from_rest_chain","kin_braking_distance","kin_reaction_braking","kin_two_stage","kin_accel_from_delta_v"]}],"Mechanika|Dynamika":[{"name":"Síly a pohyb","formulaIds":["newton","friction","hooke"],"compoundIds":["newton_friction_accel","dyn_velocity_force","vector_force_acceleration_v68"]},{"name":"Hybnost a impuls","formulaIds":["momentum","impulse","momentum_conservation_general","momentum_conservation_stick"],"compoundIds":["impulse_momentum_speed_v68"]}],"Mechanika|Mechanická práce a mechanická energie":[{"name":"Práce, výkon a účinnost","formulaIds":["work","work_angle","power","efficiency"],"compoundIds":["crane_power","friction_power","force_work_power_chain"]},{"name":"Mechanická energie","formulaIds":["kinetic","potential","mechanical_energy_conservation"],"compoundIds":["accelerate_energy","braking_work","momentum_energy_chain2"]}],"Mechanika|Gravitační pole":[{"name":"Pole, síla a potenciální energie","formulaIds":["gravitation","grav_field_intensity","weight","grav_potential_general"],"compoundIds":["gravity_weight_altitude_chain"]},{"name":"Oběžný pohyb a Keplerovy zákony","formulaIds":["orbital_balance","kepler_third"],"compoundIds":["orbit_period_gravity"]},{"name":"Vrhy v gravitačním poli","formulaIds":[],"compoundIds":["vertical_throw_up_v56","horizontal_throw_v56","oblique_throw_range_v56"]}],"Mechanika|Mechanika tuhého tělesa":[{"name":"Statika a těžiště","formulaIds":["moment","torque_angle","lever","center_of_mass_two"],"compoundIds":["beam_support_reactions_v56","rod_added_mass_center_v56"]},{"name":"Rotační kinematika a dynamika","formulaIds":["angular_acceleration","rotational_velocity_time","rotational_angle_time","point_mass_moment_inertia","rotational_dynamics"],"compoundIds":["rigid_rotation_force_chain2","torque_rotation_motion_v68"]},{"name":"Moment hybnosti a energie rotace","formulaIds":["angular_momentum","rotational_impulse","angular_momentum_conservation","rotational_kinetic_energy"],"compoundIds":["rotation_energy_chain"]}],"Mechanika|Mechanika kapalin a plynů":[{"name":"Tlak a hydrostatika","formulaIds":["pressure","hydrostatic","hydraulic_press","archimedes"],"compoundIds":["hydrostatic_force_chain","hydraulic_pressure_force_chain","buoyancy_density_chain","floating_body_v56"]},{"name":"Proudění kapalin","formulaIds":["volume_flow","continuity","bernoulli_horizontal"],"compoundIds":["flow_chain","fluid_bernoulli_continuity"]},{"name":"Odpor prostředí","formulaIds":["stokes_drag","quadratic_drag"],"compoundIds":[]}],"Molekulová fyzika a termika|Plynné skupenství":[{"name":"Mikroskopický popis plynu","formulaIds":["mean_molecular_energy","rms_molecular_speed","kinetic_gas_pressure","microscopic_ideal_gas"],"compoundIds":["gas_particles_pressure2"]},{"name":"Stavová rovnice a stavové veličiny","formulaIds":["ideal_gas","gas_states"],"compoundIds":["gas_mass_pressure","gas_density_pressure","relative_mass_ideal_gas_v56"]},{"name":"Děje s ideálním plynem","formulaIds":["isothermal_process","isochoric_process","isobaric_process","adiabatic_process"],"compoundIds":["isochoric_heat_firstlaw_v56"]},{"name":"Vnitřní energie a tepelné kapacity plynu","formulaIds":["monoatomic_internal_energy","heat_capacity_ratio"],"compoundIds":[]}],"Molekulová fyzika a termika|Změny skupenství":[{"name":"Tání a ohřev kapaliny","formulaIds":["latent_heat"],"compoundIds":["phase_change_heating","ice_melt_warm_water_v55"]},{"name":"Var, kondenzace a ochlazování","formulaIds":[],"compoundIds":["water_boil_heat_steam_v55","steam_condense_cool_water_v55"]},{"name":"Vícekrokové přeměny","formulaIds":[],"compoundIds":["ice_to_steam_full_v68","steam_to_ice_full_v68"]}],"Kmitavý pohyb a mechanické vlnění|Kmitání mechanického oscilátoru":[{"name":"Základní veličiny kmitání","formulaIds":["period_frequency","oscillation_count","angular_frequency"],"compoundIds":[]},{"name":"Harmonický pohyb","formulaIds":["harmonic_displacement","harmonic_velocity","harmonic_acceleration"],"compoundIds":[]},{"name":"Pružinový oscilátor","formulaIds":["spring_period","spring_frequency","spring_total_energy","spring_potential_energy"],"compoundIds":["spring_omega_chain","spring_count_chain","spring_energy_frequency_chain","oscillator_instant_energy_v68"]},{"name":"Matematické kyvadlo","formulaIds":["pendulum_period","pendulum_frequency"],"compoundIds":["pendulum_omega_chain","pendulum_count_chain"]}],"Elektřina a magnetismus|Elektrostatika":[{"name":"Elektrické pole, potenciál a práce","formulaIds":["coulomb","electric_field","point_charge_field","electric_potential_point","homogeneous_electric_field","electric_field_work","electric_potential_energy"],"compoundIds":["electrostatic_field_force2","charged_particle_electric_acceleration_v68"]},{"name":"Kondenzátory","formulaIds":["capacitance","parallel_plate_capacitor","capacitor_energy","capacitors_parallel","capacitors_series"],"compoundIds":["capacitor_energy_chain","capacitor_series_energy"]}],"Elektřina a magnetismus|Elektrický proud":[{"name":"Proud, napětí a Ohmův zákon","formulaIds":["electric_current","electric_voltage","ohm_law","ohm_complete_circuit"],"compoundIds":[]},{"name":"Odpor vodiče a spojování rezistorů","formulaIds":["wire_resistance","resistance_temperature","resistors_series","resistors_parallel"],"compoundIds":[]},{"name":"Kirchhoffovy zákony","formulaIds":["kirchhoff_node","kirchhoff_loop"],"compoundIds":[]},{"name":"Práce, výkon a tepelné účinky","formulaIds":["electric_work_energy","electric_power"],"compoundIds":["electric_heating","heater_efficiency","series_power_chain","parallel_power_chain","wire_power_chain","electric_motor_lift"]},{"name":"Děliče a měřicí přístroje","formulaIds":[],"compoundIds":["series_resistor_voltage","voltage_divider_v68","current_divider_v68","ammeter_shunt_v68","voltmeter_multiplier_v68"]}],"Elektřina a magnetismus|Magnetické pole":[{"name":"Pole vodičů a síly na vodiče","formulaIds":["straight_wire_field","solenoid_field","magnetic_conductor_force","parallel_wires_force"],"compoundIds":["magnetic_wire_chain"]},{"name":"Nabité částice v magnetickém poli","formulaIds":["lorentz_force","charged_particle_circle"],"compoundIds":["magnetic_particle_period","electric_to_magnetic_particle_v68"]},{"name":"Elektromagnetická indukce","formulaIds":["magnetic_flux","faraday_law","motional_emf"],"compoundIds":["motional_circuit_chain2","flux_faraday_v68"]},{"name":"Vlastní indukce a energie cívky","formulaIds":["self_induction","coil_energy"],"compoundIds":["self_induction_energy_v68"]}],"Elektřina a magnetismus|Střídavý proud":[{"name":"Střídavé napětí a proud","formulaIds":["instantaneous_ac_voltage","instantaneous_ac_current","rms_voltage","rms_current"],"compoundIds":[]},{"name":"Reaktance a RLC obvody","formulaIds":["inductive_reactance","capacitive_reactance","rlc_impedance","rlc_phase_shift","rlc_current"],"compoundIds":["ac_rlc_full","ac_inductor_current_chain2","ac_capacitor_current_v68","ac_rl_series_v68"]},{"name":"Rezonance a výkon","formulaIds":["lc_resonance","ac_power"],"compoundIds":["ac_rlc_power_v68","ac_resonance_v68"]}],"Optika|Optická zobrazení":[{"name":"Zrcadla","formulaIds":["spherical_mirror"],"compoundIds":["mirror_magnification_v68"]},{"name":"Čočky","formulaIds":["thin_lens","optical_power","transverse_magnification","magnification_distance"],"compoundIds":["lens_combo","lens_image_height"]}],"Optika|Vlnové vlastnosti světla":[{"name":"Interference a Youngův experiment","formulaIds":["light_interference_max","light_interference_min","young_double_slit"],"compoundIds":["young_frequency_fringe_v68"]},{"name":"Vlnová délka v prostředí a optická mřížka","formulaIds":["optical_grating"],"compoundIds":["light_medium_wavelength_v55","light_medium_grating_v55"]}],"Moderní fyzika|Úvod do speciální teorie relativity (STR)":[{"name":"Lorentzův faktor, čas a délka","formulaIds":["lorentz_factor","time_dilation","length_contraction","relativistic_velocity_addition"],"compoundIds":["str_speed_time2","str_time_length_v68"]},{"name":"Hybnost a energie","formulaIds":["mass_energy","relativistic_momentum","relativistic_total_energy","relativistic_kinetic_energy"],"compoundIds":["str_energy_momentum_v68"]}],"Moderní fyzika|Úvod do kvantové mechaniky":[{"name":"Foton a elektromagnetické záření","formulaIds":["photon_energy","photon_total_energy","photon_momentum_full"],"compoundIds":["grating_photon","photon_wavelength_chain2","em_wave_photon_v68","photon_count_power_v68"]},{"name":"de Broglieho vztah","formulaIds":["de_broglie"],"compoundIds":["debroglie_kinetic"]},{"name":"Fotoelektrický jev","formulaIds":["photoelectric_equation","photoelectric_stopping_voltage"],"compoundIds":["photoelectric_chain","photoelectric_wavelength"]}],"Moderní fyzika|Jaderná fyzika":[{"name":"Jádro a vazebná energie","formulaIds":["mass_defect","binding_energy","binding_energy_per_nucleon","nuclear_reaction_energy"],"compoundIds":["binding_per_nucleon_v68"]},{"name":"Radioaktivita","formulaIds":["half_life","decay_constant","radioactivity_activity"],"compoundIds":["radioactivity_chain"]}]};
+
+function subsubConfig(chapter,subchapter){
+  return SUBSUBCHAPTERS_V75[`${chapter}|${subchapter}`]||null;
+}
+function formulaSubsubchapter(f){
+  if(!f)return '';
+  const cfg=subsubConfig(f.topic,f.subtopic);
+  if(!cfg)return '';
+  const x=cfg.find(g=>(g.formulaIds||[]).includes(f.id));
+  return x?.name||'';
+}
+function compoundFamilySubsubchapter(f){
+  if(!f||f.scope==='cross')return '';
+  const chapter=f.area==='Kmitání a vlnění'?'Kmitavý pohyb a mechanické vlnění':f.area;
+  const sub=f.homeSubchapter||f.subchapter;
+  const cfg=subsubConfig(chapter,sub);
+  if(!cfg)return '';
+  const x=cfg.find(g=>(g.compoundIds||[]).includes(f.id));
+  return x?.name||'';
+}
+function formulaBreadcrumb(f){
+  const ss=formulaSubsubchapter(f);
+  return `${f.topic} › ${f.subtopic}${ss?` › ${ss}`:''}`;
+}
+function compoundBreadcrumb(f){
+  const ss=compoundFamilySubsubchapter(f);
+  return `${f.area} › ${f.homeSubchapter||f.subchapter}${ss?` › ${ss}`:''}`;
+}
+function formulaButtonHtml(f,forSide=false){
+  return `<button class="formulaLink ${forSide&&f.id===currentId?'active':''}" data-formula-id="${f.id}" onclick="openFormula('${f.id}')"><div class="formulaTop"><span class="formulaName">${f.name}</span>${contentLevelPill(f)}</div><div class="mini">${mi(f.tex)}</div></button>`;
+}
+
+
+catalogHTML=function(includeFuture=true,forSide=false){
+  let h='';
+  const current=getFormula(currentId);
+  Object.entries(groups()).forEach(([ch,subs],i)=>{
+    const chapterOpen=forSide&&current&&current.topic===ch;
+    h+=`<details class="chapter" ${chapterOpen?'open':''}><summary><span>${i+1}. ${ch}</span><span class="chev">›</span></summary><div class="chapterBody">`;
+    Object.entries(subs).forEach(([sub,fs],j)=>{
+      const subOpen=forSide&&current&&current.topic===ch&&current.subtopic===sub;
+      h+=`<details class="subchapter" ${subOpen?'open':''}><summary><span>${i+1}.${j+1} ${sub}</span><span class="chev">›</span></summary>`;
+      const cfg=subsubConfig(ch,sub);
+      if(cfg){
+        const used=new Set();
+        let ssNo=0;
+        cfg.forEach(ss=>{
+          const items=fs.filter(f=>(ss.formulaIds||[]).includes(f.id));
+          if(!items.length)return;
+          items.forEach(f=>used.add(f.id));
+          ssNo++;
+          const ssOpen=forSide&&current&&items.some(f=>f.id===current.id);
+          h+=`<details class="subsubchapter" ${ssOpen?'open':''}><summary><span>${i+1}.${j+1}.${ssNo} ${ss.name}</span><span class="chev">›</span></summary><div class="formulaLinks">${items.map(f=>formulaButtonHtml(f,forSide)).join('')}</div></details>`;
+        });
+        const rest=fs.filter(f=>!used.has(f.id));
+        if(rest.length)h+=`<div class="formulaLinks">${rest.map(f=>formulaButtonHtml(f,forSide)).join('')}</div>`;
+      }else{
+        h+=`<div class="formulaLinks">${fs.map(f=>formulaButtonHtml(f,forSide)).join('')}</div>`;
+      }
+      h+='</details>';
+    });
+    h+='</div></details>';
+  });
+  if(includeFuture)futureChapters.forEach(ch=>h+=`<details class="chapter"><summary><span>${ch}</span><span class="pill">později</span></summary><div class="future">Tuto kapitolu doplníme v dalším kroku.</div></details>`);
+  return h;
+};
+
+
+const compoundExpandedSubsubchapters=new Set();
+function compoundSubsubchapterStateKey(chapter,subchapter,subsubchapter){
+  return `${chapter}|||${subchapter}|||${subsubchapter}`;
+}
+function setCompoundSubsubchapterOpen(chapter,subchapter,subsubchapter,isOpen){
+  chapter=decodeURIComponent(chapter);subchapter=decodeURIComponent(subchapter);subsubchapter=decodeURIComponent(subsubchapter);
+  const key=compoundSubsubchapterStateKey(chapter,subchapter,subsubchapter);
+  if(isOpen)compoundExpandedSubsubchapters.add(key);else compoundExpandedSubsubchapters.delete(key);
+}
+function ensureCompoundSubsubOpenForFamily(f){
+  const ss=compoundFamilySubsubchapter(f);
+  if(!ss)return;
+  const chapter=f.area==='Kmitání a vlnění'?'Kmitavý pohyb a mechanické vlnění':f.area;
+  const sub=f.homeSubchapter||f.subchapter;
+  compoundExpandedSubsubchapters.add(compoundSubsubchapterStateKey(chapter,sub,ss));
+}
+compoundTreeHtml=function(){
+  let h='<div class="compoundTree">';
+  let visibleChapterNo=0;
+  CURRICULUM_STRUCTURE.forEach(chapter=>{
+    const area=compoundAreaFromChapter(chapter.name);
+    const chapterFamilies=COMPOUND_FAMILIES.filter(f=>f.area===area&&(f.homeSubchapter||f.scope==='cross'));
+    if(!chapterFamilies.length)return;
+    const chapterNo=++visibleChapterNo;
+    const expanded=compoundExpandedChapters.has(chapter.name)||(compoundTreeSelection.chapter===chapter.name);
+    h+=`<div class="compoundTreeChapter" data-compound-chapter="${encodeURIComponent(chapter.name)}"><div class="compoundTreeChapterHead"><button class="compoundTreeSelect compoundTreeExpandOnly ${expanded?'active':''}" aria-expanded="${expanded?'true':'false'}" onclick="toggleCompoundTreeChapter('${encodeURIComponent(chapter.name)}')"><span class="title">${chapterNo}. ${chapter.name}</span><span style="display:flex;align-items:center;gap:8px"><span class="compoundTreeCount">${chapterFamilies.length} skupin</span><span class="chev">›</span></span></button></div><div class="compoundSubList nav ${expanded?'':'hidden'}">`;
+
+    const familyButton=f=>`<button class="compoundTreeFamily" onclick="openCompoundFamilyPage('${f.id}')"><div class="recipeTitle"><b>${f.name}</b><span class="pill">${f.count} vztahy</span></div><div class="recipeFormulas">${f.formulas.map((x,k)=>`${k?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div><div class="mini" style="margin-top:7px">${f.targets.length} možné hlavní neznámé · kliknutím otevřeš vlastní stránku skupiny</div></button>`;
+
+    const renderSub=(subName,families,label)=>{
+      if(!families.length)return;
+      const key=compoundSubchapterStateKey(chapter.name,subName);
+      const subOpen=compoundExpandedSubchapters.has(key)||(compoundTreeSelection.chapter===chapter.name&&compoundTreeSelection.subchapter===subName);
+      h+=`<details class="compoundTreeSubchapter" ${subOpen?'open':''} ontoggle="setCompoundSubchapterOpen('${encodeURIComponent(chapter.name)}','${encodeURIComponent(subName)}',this.open)"><summary><span>${label}</span><span style="display:flex;align-items:center;gap:7px"><span class="compoundTreeCount">${families.length}</span><span class="chev">›</span></span></summary>`;
+      const cfg=subsubConfig(chapter.name,subName);
+      if(cfg){
+        const used=new Set();
+        cfg.forEach(ss=>{
+          const xs=families.filter(f=>(ss.compoundIds||[]).includes(f.id));
+          if(!xs.length)return;
+          xs.forEach(f=>used.add(f.id));
+          const ssKey=compoundSubsubchapterStateKey(chapter.name,subName,ss.name);
+          const ssOpen=compoundExpandedSubsubchapters.has(ssKey)||xs.some(f=>f.id===compoundFamilyId&&mode==='compoundPage');
+          h+=`<details class="compoundTreeSubsubchapter" ${ssOpen?'open':''} ontoggle="setCompoundSubsubchapterOpen('${encodeURIComponent(chapter.name)}','${encodeURIComponent(subName)}','${encodeURIComponent(ss.name)}',this.open)"><summary><span>${ss.name}</span><span style="display:flex;align-items:center;gap:7px"><span class="compoundTreeCount">${xs.length}</span><span class="chev">›</span></span></summary><div class="compoundTreeFamilyList">${xs.map(familyButton).join('')}</div></details>`;
+        });
+        const rest=families.filter(f=>!used.has(f.id));
+        if(rest.length)h+=`<div class="compoundTreeFamilyList">${rest.map(familyButton).join('')}</div>`;
+      }else{
+        h+=`<div class="compoundTreeFamilyList">${families.map(familyButton).join('')}</div>`;
+      }
+      h+='</details>';
+    };
+
+    let visibleSubNo=0;
+    chapter.subtopics.forEach(sub=>{
+      const families=chapterFamilies.filter(f=>f.scope!=='cross'&&f.homeSubchapter===sub.name);
+      if(!families.length)return;
+      const subNo=++visibleSubNo;
+      renderSub(sub.name,families,`${chapterNo}.${subNo} ${sub.name}`);
+    });
+    const cross=chapterFamilies.filter(f=>f.scope==='cross');
+    if(cross.length)renderSub('Napříč kapitolami',cross,`${chapterNo}.X Napříč kapitolami`);
+    h+='</div></div>';
+  });
+  return h+'</div>';
+};
+
+
+renderBuilder=function(){
+  const previouslySelected=new Set([...document.querySelectorAll('#builderTree [data-practice-item]:checked')].map(x=>`${x.dataset.kind}:${x.dataset.itemId}`));
+  const select=document.getElementById('contentLevelSelect');if(select)select.value=builderContentLevel;
+  const mobile=innerWidth<851;
+  let h=`<div class="builderTools"><button class="btn small" onclick="selectBuilder(true)">Vybrat vše</button><button class="btn small" onclick="selectBuilder(false)">Zrušit výběr</button><button class="btn small ${builderOnlySelected?'active':''}" onclick="toggleBuilderOnlySelected()">${builderOnlySelected?'Zobrazit vše':'Zobrazit jen vybrané'}</button></div>`;
+
+  const itemRow=(kind,f,cid,sid,ssid='')=>{
+    const key=`${kind}:${f.id}`;
+    const id=(kind==='single'?'bf_':'bc_')+f.id;
+    const classes=[cid,sid,ssid].filter(Boolean).join(' ');
+    if(kind==='single')return `<div class="check s2 builderItemRow"><input id="${id}" class="${classes}" data-practice-item="1" data-kind="single" data-item-id="${f.id}" type="checkbox" ${previouslySelected.has(key)?'checked':''} onchange="syncBuilder();updateBuilderSummary()"><label for="${id}">${f.name}<span class="builderKind">1 vztah</span></label>${contentLevelPill(f)}</div>`;
+    return `<div class="check s2 builderItemRow"><input id="${id}" class="${classes}" data-practice-item="1" data-kind="compound" data-item-id="${f.id}" type="checkbox" ${previouslySelected.has(key)?'checked':''} onchange="syncBuilder();updateBuilderSummary()"><label for="${id}">${f.name}<span class="builderKind compound">${f.count} vztahy</span></label></div>`;
+  };
+
+  CURRICULUM_STRUCTURE.forEach(chapter=>{
+    const area=compoundAreaFromChapter(chapter.name),chapterRows=[];
+    chapter.subtopics.forEach(sub=>{
+      let fs=sub.ids.map(id=>getFormula(id)).filter(Boolean);
+      if(builderContentLevel==='core')fs=fs.filter(f=>f.contentLevel==='core');
+      if(builderContentLevel==='extended')fs=fs.filter(f=>f.contentLevel==='extended');
+      const cs=COMPOUND_FAMILIES.filter(f=>f.area===area&&f.scope!=='cross'&&f.homeSubchapter===sub.name);
+      if(fs.length||cs.length)chapterRows.push({subName:sub.name,fs,cs});
+    });
+    const cross=COMPOUND_FAMILIES.filter(f=>f.area===area&&f.scope==='cross');
+    if(cross.length)chapterRows.push({subName:'Napříč kapitolami',fs:[],cs:cross});
+    if(!chapterRows.length)return;
+
+    const cid='bch_'+slug(chapter.name);
+    const total=chapterRows.reduce((n,r)=>n+r.fs.length+r.cs.length,0);
+    h+=`<details class="builderChapter" data-builder-chapter="${cid}" ${mobile?'':'open'}><summary><input id="${cid}" type="checkbox" onclick="event.stopPropagation()" onchange="toggleGroup('${cid}');updateBuilderSummary()"><b>${chapter.name}</b><span class="count">${total} položek</span><span class="builderChevron">›</span></summary><div class="builderChapterBody">`;
+
+    chapterRows.forEach(({subName,fs,cs})=>{
+      const sid='bsub_'+slug(chapter.name+'_'+subName),subTotal=fs.length+cs.length;
+      h+=`<details class="builderSubchapter" data-builder-sub="${sid}" ${mobile?'':'open'}><summary><input id="${sid}" class="${cid}" type="checkbox" onclick="event.stopPropagation()" onchange="toggleGroup('${sid}');syncBuilder();updateBuilderSummary()"><span>${subName}</span><span class="count">${subTotal}</span><span class="builderChevron">›</span></summary><div class="builderSubchapterBody">`;
+      const cfg=subsubConfig(chapter.name,subName);
+      const usedF=new Set(),usedC=new Set();
+      if(cfg){
+        cfg.forEach(ss=>{
+          const ssFs=fs.filter(f=>(ss.formulaIds||[]).includes(f.id));
+          const ssCs=cs.filter(f=>(ss.compoundIds||[]).includes(f.id));
+          if(!ssFs.length&&!ssCs.length)return;
+          ssFs.forEach(f=>usedF.add(f.id));ssCs.forEach(f=>usedC.add(f.id));
+          const ssid='bss_'+slug(chapter.name+'_'+subName+'_'+ss.name),ssTotal=ssFs.length+ssCs.length;
+          h+=`<details class="builderSubsubchapter" data-builder-subsub="${ssid}" ${mobile?'':'open'}><summary><input id="${ssid}" class="${cid} ${sid}" type="checkbox" onclick="event.stopPropagation()" onchange="toggleGroup('${ssid}');syncBuilder();updateBuilderSummary()"><span>${ss.name}</span><span class="count">${ssTotal}</span><span class="builderChevron">›</span></summary><div class="builderSubsubchapterBody">`;
+          ssFs.forEach(f=>h+=itemRow('single',f,cid,sid,ssid));
+          ssCs.forEach(f=>h+=itemRow('compound',f,cid,sid,ssid));
+          h+='</div></details>';
+        });
+      }
+      fs.filter(f=>!usedF.has(f.id)).forEach(f=>h+=itemRow('single',f,cid,sid));
+      cs.filter(f=>!usedC.has(f.id)).forEach(f=>h+=itemRow('compound',f,cid,sid));
+      h+='</div></details>';
+    });
+    h+='</div></details>';
+  });
+  h+=`<div id="builderSelectedEmpty" class="builderSelectedEmpty hidden">Zatím není vybraná žádná položka.</div><div id="builderSummary" class="builderSummary"></div>`;
+  document.getElementById('builderTree').innerHTML=h;
+  syncBuilder();updateBuilderSummary();
+};
+
+syncBuilder=function(){
+  document.querySelectorAll('#builderTree input[id^="bss_"]').forEach(x=>{
+    const c=[...document.querySelectorAll('.'+x.id+'[data-practice-item]')],n=c.filter(y=>y.checked).length;
+    x.checked=c.length>0&&n===c.length;x.indeterminate=n>0&&n<c.length;
+  });
+  document.querySelectorAll('#builderTree input[id^="bsub_"]').forEach(x=>{
+    const c=[...document.querySelectorAll('.'+x.id+'[data-practice-item]')],n=c.filter(y=>y.checked).length;
+    x.checked=c.length>0&&n===c.length;x.indeterminate=n>0&&n<c.length;
+  });
+  document.querySelectorAll('#builderTree input[id^="bch_"]').forEach(x=>{
+    const c=[...document.querySelectorAll('.'+x.id+'[data-practice-item]')],n=c.filter(y=>y.checked).length;
+    x.checked=c.length>0&&n===c.length;x.indeterminate=n>0&&n<c.length;
+  });
+};
+
+applyBuilderSelectionFilter=function(){
+  const root=document.getElementById('builderTree');if(!root)return;
+  root.querySelectorAll('.builderItemRow').forEach(row=>{const checked=!!row.querySelector('[data-practice-item]:checked');row.classList.toggle('hiddenBySelection',builderOnlySelected&&!checked)});
+  root.querySelectorAll('.builderSubsubchapter').forEach(ss=>{const hasChecked=!!ss.querySelector('[data-practice-item]:checked');ss.classList.toggle('hiddenBySelection',builderOnlySelected&&!hasChecked);if(builderOnlySelected&&hasChecked)ss.open=true});
+  root.querySelectorAll('.builderSubchapter').forEach(sub=>{const hasChecked=!!sub.querySelector('[data-practice-item]:checked');sub.classList.toggle('hiddenBySelection',builderOnlySelected&&!hasChecked);if(builderOnlySelected&&hasChecked)sub.open=true});
+  root.querySelectorAll('.builderChapter').forEach(ch=>{const hasChecked=!!ch.querySelector('[data-practice-item]:checked');ch.classList.toggle('hiddenBySelection',builderOnlySelected&&!hasChecked);if(builderOnlySelected&&hasChecked)ch.open=true});
+  const empty=document.getElementById('builderSelectedEmpty');if(empty)empty.classList.toggle('hidden',!builderOnlySelected||!!root.querySelector('[data-practice-item]:checked'));
+};
+
 document.getElementById('homeSearch').addEventListener('input',e=>{
   const q=e.target.value.trim().toLowerCase();
   const res=document.getElementById('searchResults');
@@ -18443,11 +18752,11 @@ document.getElementById('homeSearch').addEventListener('input',e=>{
     return;
   }
   if(homeMode==='single'){
-    const hits=formulas.filter(f=>(f.name+' '+f.topic+' '+f.subtopic+' '+f.keywords+' '+f.vars.map(v=>v.name+' '+v.k).join(' ')).toLowerCase().includes(q));
-    res.innerHTML=hits.map(f=>`<div class="hit" onclick="openFormula('${f.id}')"><div class="formulaTop"><b>${f.name}</b>${contentLevelPill(f)}</div><div class="mini">${f.topic} › ${f.subtopic} · ${mi(f.tex)}</div></div>`).join('')||'<div class="future">Nic jsem nenašel.</div>';
+    const hits=formulas.filter(f=>(f.name+' '+f.topic+' '+f.subtopic+' '+formulaSubsubchapter(f)+' '+f.keywords+' '+f.vars.map(v=>v.name+' '+v.k).join(' ')).toLowerCase().includes(q));
+    res.innerHTML=hits.map(f=>`<div class="hit" onclick="openFormula('${f.id}')"><div class="formulaTop"><b>${f.name}</b>${contentLevelPill(f)}</div><div class="mini">${formulaBreadcrumb(f)} · ${mi(f.tex)}</div></div>`).join('')||'<div class="future">Nic jsem nenašel.</div>';
   }else{
-    const hits=COMPOUND_FAMILIES.filter(f=>f.scope!=='cross'&&f.homeSubchapter&&(f.name+' '+f.area+' '+f.homeSubchapter+' '+f.keywords+' '+f.formulas.join(' ')).toLowerCase().includes(q));
-    res.innerHTML=hits.map(f=>`<div class="compoundSearchHit" onclick="chooseCompoundSearchResult('${f.id}')"><div class="recipeTitle"><b>${f.name}</b><span class="pill">${f.count} vztahy</span></div><div class="recipeFormulas">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div><div class="recipeMeta">${compoundScopePill(f)}<span class="mini">${f.area} › ${f.subchapter}</span></div></div>`).join('')||'<div class="future">Žádný odpovídající balíček jsem nenašel.</div>';
+    const hits=COMPOUND_FAMILIES.filter(f=>f.scope!=='cross'&&f.homeSubchapter&&(f.name+' '+f.area+' '+f.homeSubchapter+' '+compoundFamilySubsubchapter(f)+' '+f.keywords+' '+f.formulas.join(' ')).toLowerCase().includes(q));
+    res.innerHTML=hits.map(f=>`<div class="compoundSearchHit" onclick="chooseCompoundSearchResult('${f.id}')"><div class="recipeTitle"><b>${f.name}</b><span class="pill">${f.count} vztahy</span></div><div class="recipeFormulas">${f.formulas.map((x,i)=>`${i?'<span class="recipeArrow">→</span>':''}<span class="recipeFormula">${mi(x)}</span>`).join('')}</div><div class="recipeMeta">${compoundScopePill(f)}<span class="mini">${compoundBreadcrumb(f)}</span></div></div>`).join('')||'<div class="future">Žádný odpovídající balíček jsem nenašel.</div>';
   }
   res.classList.remove('hidden');
   wrap.classList.add('hidden');
