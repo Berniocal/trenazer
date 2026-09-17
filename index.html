@@ -8452,6 +8452,11 @@ function vectorSituation(){
 }
 function finishVectorProblem(p,sit){
   p.vectorKind=sit.kind;
+
+  // V136 hotfix přesnosti vektorů:
+  // Viditelná zadaná čísla jsou jediný zdroj pravdy. Dříve se např.
+  // F_x=191,511... zobrazilo jako 192 N, ale p.vals dál obsahovalo 191,511...
+  // a řešení pak počítalo z jiné hodnoty, než kterou žák skutečně viděl.
   if(sit.kind==='force'){
     for(const c of p.conversions||[]){
       if(c.siUnit!=='N')continue;
@@ -8466,6 +8471,54 @@ function finishVectorProblem(p,sit){
       c.linearFactor=1;
     }
   }
+
+  const vectorKeys=new Set(['Avec','Ax','Ay','alphaVec','betaVec']);
+  const givens={};
+  for(const c of p.conversions||[]){
+    if(!vectorKeys.has(c.k))continue;
+    givens[c.k]=c.displayValue;
+    c.siValue=c.displayValue;
+    c.linearFactor=1;
+  }
+
+  const has=k=>Object.prototype.hasOwnProperty.call(givens,k);
+  let {Avec,Ax,Ay,alphaVec,betaVec}=p.vals;
+  const rad=d=>d*Math.PI/180;
+  const deg=r=>r*180/Math.PI;
+  const clamp=x=>Math.max(-1,Math.min(1,x));
+
+  if(has('Avec')&&has('alphaVec')){
+    Avec=givens.Avec; alphaVec=givens.alphaVec; betaVec=90-alphaVec;
+    Ax=Avec*Math.cos(rad(alphaVec)); Ay=Avec*Math.sin(rad(alphaVec));
+  }else if(has('Avec')&&has('betaVec')){
+    Avec=givens.Avec; betaVec=givens.betaVec; alphaVec=90-betaVec;
+    Ax=Avec*Math.sin(rad(betaVec)); Ay=Avec*Math.cos(rad(betaVec));
+  }else if(has('Ax')&&has('Ay')){
+    Ax=givens.Ax; Ay=givens.Ay; Avec=Math.hypot(Ax,Ay);
+    alphaVec=deg(Math.atan2(Ay,Ax)); betaVec=90-alphaVec;
+  }else if(has('Avec')&&has('Ax')){
+    Avec=givens.Avec; Ax=givens.Ax;
+    Ay=Math.sqrt(Math.max(0,Avec*Avec-Ax*Ax));
+    alphaVec=deg(Math.acos(clamp(Ax/Avec))); betaVec=90-alphaVec;
+  }else if(has('Avec')&&has('Ay')){
+    Avec=givens.Avec; Ay=givens.Ay;
+    Ax=Math.sqrt(Math.max(0,Avec*Avec-Ay*Ay));
+    alphaVec=deg(Math.asin(clamp(Ay/Avec))); betaVec=90-alphaVec;
+  }else if(has('Ax')&&has('alphaVec')){
+    Ax=givens.Ax; alphaVec=givens.alphaVec; betaVec=90-alphaVec;
+    Avec=Ax/Math.cos(rad(alphaVec)); Ay=Ax*Math.tan(rad(alphaVec));
+  }else if(has('Ax')&&has('betaVec')){
+    Ax=givens.Ax; betaVec=givens.betaVec; alphaVec=90-betaVec;
+    Avec=Ax/Math.sin(rad(betaVec)); Ay=Ax/Math.tan(rad(betaVec));
+  }else if(has('Ay')&&has('alphaVec')){
+    Ay=givens.Ay; alphaVec=givens.alphaVec; betaVec=90-alphaVec;
+    Avec=Ay/Math.sin(rad(alphaVec)); Ax=Ay/Math.tan(rad(alphaVec));
+  }else if(has('Ay')&&has('betaVec')){
+    Ay=givens.Ay; betaVec=givens.betaVec; alphaVec=90-betaVec;
+    Avec=Ay/Math.cos(rad(betaVec)); Ax=Ay*Math.tan(rad(betaVec));
+  }
+
+  p.vals={...p.vals,Avec,Ax,Ay,alphaVec,betaVec};
   return p;
 }
 function vectorDisplayMeta(k,p){
@@ -12648,10 +12701,21 @@ function resultDisplay(meta,val){
   return preferredDisplay(val,baseUnit,meta.k);
 }
 function fmtResult(x){
-  if(numberDifficulty===1) return fmt(x);
   if(!Number.isFinite(x)) return String(x);
   const ax=Math.abs(x);
   if(ax===0) return '0';
+
+  if(numberDifficulty===1){
+    // „Hezká“ zadání nesmí znamenat hrubší zaokrouhlení výsledku.
+    // Výsledek od 1 do 9999 ukážeme s maximálně 1 desetinným místem.
+    if(ax<0.001 || ax>=10000){
+      let [mant,exp]=x.toExponential(1).split('e');
+      mant=mant.replace(/\.0$/,'').replace('.',',');
+      return `${mant}·10${superscriptInt(parseInt(exp))}`;
+    }
+    if(ax<1) return String(roundSig(x,2)).replace('.',',');
+    return String(Math.round(x*10)/10).replace('.',',');
+  }
 
   if(ax<0.001 || ax>=10000){
     let [mant,exp]=x.toExponential(2).split('e');
@@ -12826,16 +12890,17 @@ function texNumResult(x){
     if(ax===0) return '0';
     if(ax<0.001 || ax>=10000){
       let [mant,exp]=x.toExponential(1).split('e');
-      mant=mant.replace(/\\.0$/,'').replace('.', '{,}');
+      mant=mant.replace(/\.0$/,'').replace('.', '{,}');
       return `${mant}\\cdot10^{${parseInt(exp)}}`;
     }
-    return fmt(x).replace(',', '{,}');
+    if(ax<1) return String(roundSig(x,2)).replace('.', '{,}');
+    return String(Math.round(x*10)/10).replace('.', '{,}');
   }
   const ax=Math.abs(x);
   if(ax===0)return '0';
   if(ax<0.001 || ax>=10000){
     let [mant,exp]=x.toExponential(2).split('e');
-    mant=mant.replace(/\\.?0+$/,'').replace('.', '{,}');
+    mant=mant.replace(/\.?0+$/,'').replace('.', '{,}');
     return `${mant}\\cdot10^{${parseInt(exp)}}`;
   }
   return String(roundSig(x,3)).replace('.', '{,}');
@@ -27744,6 +27809,48 @@ Object.entries(V135_ALLOWED_TARGETS).forEach(([id,u])=>{const f=v135Formula(id);
 formulaSketchHtml=function(){return ''};
 
 
+// === V136: SYSTEMATICKY AUDIT DALSI OSMICKY PODLE AKTUALNIHO CURRICULUM_STRUCTURE ===
+// hydraulic_press, archimedes, volume_flow, continuity, bernoulli_horizontal,
+// stokes_drag, quadratic_drag, particle_relative_mass.
+const V136_ALLOWED_TARGETS={
+ hydraulic_press:['F1','S1','F2','S2'],
+ archimedes:['FA','rho','V'],
+ volume_flow:['Qv','V','t','S','v'],
+ continuity:['S1','v1','S2','v2'],
+ bernoulli_horizontal:['p2','p1','v2','v1','rho'],
+ stokes_drag:['Fst','etaVisc','r','v'],
+ quadratic_drag:['Fd','Cd','rho','S','v'],
+ particle_relative_mass:['m0part','Mr']
+};
+function v136Formula(id){return formulas.find(f=>f&&f.id===id)}
+Object.entries(V136_ALLOWED_TARGETS).forEach(([id,u])=>{const f=v136Formula(id);if(f)f.unknowns=u.slice()});
+
+// U Bernoulliho rovnice a kvadratickeho odporu byly generatory i algebra pro hustotu
+// uz pritomne, ale hustota nebyla nabizena jako cil. Je matematicky smysluplna, proto ji audit zpristupnuje.
+// Soucasne explicitne doplnujeme zakladni pedagogicky krok tam, kde drive zustal prazdny.
+{
+ const f=v136Formula('archimedes'); if(f&&f.rearrange&&f.rearrange.FA)
+  f.rearrange.FA.steps=[['Vyjdeme z Archimedova zakona pro cele ponorenou cast telesa.','\\boxed{F_A=\\rho Vg}']];
+}
+{
+ const f=v136Formula('stokes_drag'); if(f&&f.rearrange&&f.rearrange.Fst)
+  f.rearrange.Fst.steps=[['Pro pomaly pohyb kulicky ve viskozni kapaline pouzijeme Stokesuv vztah.','\\boxed{F=6\\pi\\eta rv}']];
+}
+{
+ const f=v136Formula('quadratic_drag'); if(f&&f.rearrange&&f.rearrange.Fd)
+  f.rearrange.Fd.steps=[['Pro odpor pri vyssich rychlostech pouzijeme kvadraticky model.','\\boxed{F=\\frac12 C\\rho Sv^2}']];
+}
+{
+ const f=v136Formula('particle_relative_mass'); if(f&&f.rearrange&&f.rearrange.m0part)
+  f.rearrange.m0part.steps=[['Hmotnost jedne castice ziskame vynasobenim relativni hmotnosti atomovou hmotnostni konstantou.','\\boxed{m_0=M_r u}']];
+}
+
+// V136: definitivni zakaz nacrtku zustava zachovan.
+formulaSketchHtml=function(){return ''};
+
+
+
+// V136 HOTFIX – odstranění skryté přesnosti u vektorů a přesnější výsledky
 </script>
 
 </body></html>
